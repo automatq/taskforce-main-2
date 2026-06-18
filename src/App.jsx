@@ -11,6 +11,7 @@ import AdminLayout from './components/admin/AdminLayout';
 import Dashboard from './pages/admin/Dashboard';
 import Jobs from './pages/admin/Jobs';
 import Applicants from './pages/admin/Applicants';
+import Agents from './pages/admin/Agents';
 import Employers from './pages/admin/Employers';
 import Billing from './pages/admin/Billing';
 import Documents from './pages/admin/Documents';
@@ -49,6 +50,7 @@ function App() {
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="jobs" element={<Jobs />} />
           <Route path="applicants" element={<Applicants />} />
+          <Route path="agents" element={<Agents />} />
           <Route path="employers" element={<Employers />} />
           <Route path="billing" element={<Billing />} />
           <Route path="documents" element={<Documents />} />

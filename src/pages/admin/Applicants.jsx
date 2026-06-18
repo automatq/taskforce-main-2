@@ -53,6 +53,14 @@ export default function Applicants() {
     setScoring(false);
   };
 
+  const routeToAts = async (id) => {
+    try {
+      const r = await apiFetch(`/admin/applicants/${id}/route`, { method: 'POST' });
+      if (r.routed) toast.success(`Routed to ${r.provider} (HTTP ${r.httpStatus})`);
+      else toast.info(`No ATS webhook set — payload ready for ${r.provider}. Configure it in Settings → Integrations.`);
+    } catch (err) { toast.error(err.message); }
+  };
+
   const downloadResume = async (id, name) => {
     const token = localStorage.getItem('tf_admin_token');
     const res = await fetch(`/api/admin/applicants/${id}/resume`, { headers: { Authorization: `Bearer ${token}` } });
@@ -202,9 +210,10 @@ export default function Applicants() {
               )}
             </div>
 
-            <Button variant="ghost" icon="solar:download-linear" onClick={() => downloadResume(active.id, active.name)} className="w-full justify-center">
-              Download Résumé
-            </Button>
+            <div className="flex gap-2">
+              <Button variant="ghost" icon="solar:download-linear" onClick={() => downloadResume(active.id, active.name)} className="flex-1 justify-center">Résumé</Button>
+              <Button variant="ghost" icon="solar:upload-square-linear" onClick={() => routeToAts(active.id)} className="flex-1 justify-center">Route to ATS</Button>
+            </div>
           </div>
         )}
       </Drawer>

@@ -112,6 +112,36 @@ ${resumeText ? resumeText.slice(0, 12000) : '(No résumé text could be extracte
   }
 }
 
+// The Follow-up agent: draft a warm, personalized outreach message to a candidate.
+export async function draftFollowUp({ job, applicant }) {
+  if (!aiScoringEnabled()) return null;
+  let Anthropic;
+  try {
+    ({ default: Anthropic } = await import('@anthropic-ai/sdk'));
+  } catch (err) {
+    console.error('[agents] @anthropic-ai/sdk not installed:', err.message);
+    return null;
+  }
+  const client = new Anthropic();
+  const prompt = `You are a friendly staffing recruiter. Write a short follow-up message (3-5 sentences) to a candidate who applied, encouraging them and inviting them to a quick screening call. Warm and professional, ready to send as-is — no placeholders, no subject line, just the message body.
+
+Candidate: ${applicant.name}
+Applied for: ${job.title}${job.location ? ` (${job.location})` : ''}
+Current status: ${applicant.status}${applicant.ai_score != null ? `\nFit score: ${applicant.ai_score}/100` : ''}`;
+  try {
+    const response = await client.messages.create({
+      model: MODEL,
+      max_tokens: 400,
+      messages: [{ role: 'user', content: prompt }],
+    });
+    const textBlock = response.content.find((b) => b.type === 'text');
+    return textBlock ? textBlock.text.trim() : null;
+  } catch (err) {
+    console.error('[agents] follow-up draft failed:', err.message);
+    return null;
+  }
+}
+
 // Load an application's job + résumé, score it, and persist the result.
 export async function scoreApplicationById(db, applicationId) {
   const app = db.prepare('SELECT * FROM applications WHERE id = ?').get(applicationId);

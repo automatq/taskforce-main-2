@@ -59,6 +59,8 @@ const STATUS_COLORS = {
   paid: 'emerald', sent: 'sky', overdue: 'rose',
   // employer plans
   Pro: 'sky', Basic: 'zinc', Trial: 'amber',
+  // agents
+  setup: 'amber', connect: 'sky',
 };
 
 export function StatusBadge({ status }) {

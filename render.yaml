@@ -1,0 +1,24 @@
+# Render Blueprint — 1-click deploy.
+# Deploy: https://render.com/deploy?repo=https://github.com/automatq/taskforce-main-2
+# Render prompts for ADMIN_PASSWORD at deploy time; everything else is automatic.
+services:
+  - type: web
+    name: staffing-co
+    runtime: docker
+    plan: starter            # has persistent disk support
+    healthCheckPath: /api/jobs
+    disk:
+      name: data
+      mountPath: /app/persist   # SQLite DB + uploaded résumés persist here
+      sizeGB: 1
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        generateValue: true       # auto-generated, kept stable across deploys
+      - key: ADMIN_PASSWORD
+        sync: false               # you set this in the deploy form (your login password)
+      - key: SEED_ON_BOOT
+        value: "true"             # seed demo data on first boot
+      - key: ANTHROPIC_API_KEY
+        sync: false               # optional — enables live AI scoring + agents

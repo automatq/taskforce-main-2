@@ -18,6 +18,7 @@ export default function Dashboard() {
   const [applicants, setApplicants] = useState([]);
   const [jobs, setJobs] = useState([]);
   const [invoices, setInvoices] = useState([]);
+  const [shortlist, setShortlist] = useState([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
@@ -27,8 +28,9 @@ export default function Dashboard() {
       apiFetch('/admin/applicants'),
       apiFetch('/admin/jobs'),
       apiFetch('/admin/invoices'),
+      apiFetch('/admin/shortlist'),
     ])
-      .then(([s, a, j, v]) => { setStats(s); setApplicants(a); setJobs(j); setInvoices(v); })
+      .then(([s, a, j, v, sl]) => { setStats(s); setApplicants(a); setJobs(j); setInvoices(v); setShortlist(sl); })
       .catch((e) => console.error(e))
       .finally(() => setLoading(false));
   }, []);
@@ -82,6 +84,39 @@ export default function Dashboard() {
             </button>
           ))}
         </div>
+      </GlassCard>
+
+      {/* AI daily shortlist — the Reviewer agent's top picks */}
+      <GlassCard className="overflow-hidden">
+        <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
+          <div className="flex items-center gap-2">
+            <Icon name="solar:magic-stick-3-bold" className="text-lg text-emerald-300" />
+            <h2 className="text-sm font-semibold text-white">Today's AI Shortlist</h2>
+            <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-emerald-300 ring-1 ring-emerald-400/20">Top 5</span>
+          </div>
+          <span className="hidden text-xs text-zinc-500 sm:block">Auto-emailed daily when connected</span>
+        </div>
+        {shortlist.length === 0 ? (
+          <p className="px-5 py-8 text-center text-sm text-zinc-600">No scored candidates yet — the Reviewer agent surfaces your top 5 here as applications come in.</p>
+        ) : (
+          <div className="grid gap-px bg-white/[0.06] sm:grid-cols-5">
+            {shortlist.map((a, i) => (
+              <button
+                key={a.id}
+                onClick={() => navigate(`/admin/applicants?q=${encodeURIComponent(a.name)}`)}
+                className="flex flex-col bg-zinc-950 p-4 text-left transition hover:bg-zinc-900"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-semibold text-zinc-600">#{i + 1}</span>
+                  <ScoreChip score={a.ai_score} />
+                </div>
+                <div className="mt-2 truncate text-sm font-medium text-white">{a.name}</div>
+                <div className="truncate text-xs text-zinc-500">{a.job_title}</div>
+                <div className="mt-1 truncate text-[11px] text-zinc-600">{a.company || '—'}</div>
+              </button>
+            ))}
+          </div>
+        )}
       </GlassCard>
 
       <div className="grid gap-6 lg:grid-cols-3">

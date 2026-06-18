@@ -5,7 +5,7 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import db from '../db.js';
 import auth from '../middleware/auth.js';
-import { scoreApplicationById, aiScoringEnabled } from '../services/aiScore.js';
+import { scoreApplicationById, aiScoringEnabled, draftFollowUp } from '../services/aiScore.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const router = Router();
@@ -287,7 +287,11 @@ router.get('/documents', auth, (req, res) => {
 // ---------------------------------------------------------------------------
 router.get('/settings', auth, (req, res) => {
   const org = db.prepare('SELECT id, name, settings FROM organizations WHERE id = ?').get(ORG_ID);
-  res.json({ id: org.id, name: org.name, settings: safeParse(org.settings) || {}, aiScoring: aiScoringEnabled() });
+  res.json({
+    id: org.id, name: org.name, settings: safeParse(org.settings) || {},
+    aiScoring: aiScoringEnabled(),
+    stripe: Boolean(process.env.STRIPE_SECRET_KEY && process.env.STRIPE_PRICE_ID),
+  });
 });
 
 router.put('/settings', auth, (req, res) => {
@@ -296,6 +300,126 @@ router.put('/settings', auth, (req, res) => {
     .run(name || null, JSON.stringify(settings || {}), ORG_ID);
   const org = db.prepare('SELECT id, name, settings FROM organizations WHERE id = ?').get(ORG_ID);
   res.json({ id: org.id, name: org.name, settings: safeParse(org.settings) || {} });
+});
+
+function orgSettings() {
+  const org = db.prepare('SELECT settings FROM organizations WHERE id = ?').get(ORG_ID);
+  return safeParse(org?.settings) || {};
+}
+
+// ---------------------------------------------------------------------------
+// AI daily shortlist — top-5 candidates by AI score (the "Reviewer" output)
+// ---------------------------------------------------------------------------
+router.get('/shortlist', auth, (req, res) => {
+  res.json(db.prepare(`
+    SELECT a.id, a.name, a.email, a.ai_score, a.status, a.created_at,
+           j.title AS job_title, e.name AS company
+    FROM applications a
+    JOIN jobs j ON a.job_id = j.id
+    LEFT JOIN employers e ON j.employer_id = e.id
+    WHERE a.ai_score IS NOT NULL AND a.status IN ('new','reviewing')
+    ORDER BY a.ai_score DESC, a.created_at DESC
+    LIMIT 5
+  `).all());
+});
+
+// ---------------------------------------------------------------------------
+// AI Agents — Reviewer, Follow-up, Receptionist, Voice, Onboarder
+// ---------------------------------------------------------------------------
+router.get('/agents', auth, (req, res) => {
+  const ai = aiScoringEnabled();
+  const scored = db.prepare('SELECT COUNT(*) n FROM applications WHERE ai_score IS NOT NULL').get().n;
+  const avg = db.prepare('SELECT ROUND(AVG(ai_score)) a FROM applications WHERE ai_score IS NOT NULL').get().a;
+  const s = orgSettings();
+  res.json([
+    { key: 'reviewer', name: 'The Reviewer', icon: 'solar:star-fall-2-bold-duotone',
+      desc: 'Screens every inbound résumé against the job and scores fit 0–100 with reasons.',
+      status: ai ? 'active' : 'setup', metric: ai ? `${scored} screened · avg ${avg || 0}` : 'Add ANTHROPIC_API_KEY' },
+    { key: 'followup', name: 'The Follow-up', icon: 'solar:chat-round-line-bold-duotone',
+      desc: 'Drafts warm, personalized follow-up messages to keep candidates engaged.',
+      status: ai ? 'active' : 'setup', metric: ai ? 'Ready to draft' : 'Add ANTHROPIC_API_KEY', action: 'draft' },
+    { key: 'receptionist', name: 'The Receptionist', icon: 'solar:phone-calling-rounded-bold-duotone',
+      desc: 'Answers inbound calls & chats 24/7 and captures applicants into the pipeline.',
+      status: s.phone_provider ? 'active' : 'connect', metric: s.phone_provider || 'Connect a phone number' },
+    { key: 'voice', name: 'The Voice', icon: 'solar:microphone-large-bold-duotone',
+      desc: 'Outbound voice AI that pre-screens candidates and books interviews.',
+      status: s.voice_provider ? 'active' : 'connect', metric: s.voice_provider || 'Connect a voice provider' },
+    { key: 'onboarder', name: 'The Onboarder', icon: 'solar:user-id-bold-duotone',
+      desc: 'Runs new hires through your onboarding checklist and document collection.',
+      status: 'active', metric: 'Checklist ready' },
+  ]);
+});
+
+router.post('/agents/followup', auth, async (req, res) => {
+  if (!aiScoringEnabled()) return res.status(503).json({ error: 'Connect ANTHROPIC_API_KEY to use AI agents' });
+  const a = db.prepare('SELECT * FROM applications WHERE id = ?').get(req.body.applicant_id);
+  if (!a) return res.status(404).json({ error: 'Applicant not found' });
+  const j = db.prepare('SELECT * FROM jobs WHERE id = ?').get(a.job_id);
+  const message = await draftFollowUp({ job: j, applicant: a });
+  if (!message) return res.status(502).json({ error: 'Could not draft message' });
+  res.json({ message });
+});
+
+// ---------------------------------------------------------------------------
+// ATS routing — push a candidate to the configured ATS webhook (Bullhorn, …)
+// ---------------------------------------------------------------------------
+router.post('/applicants/:id/route', auth, async (req, res) => {
+  const a = db.prepare(`
+    SELECT a.*, j.title AS job_title FROM applications a JOIN jobs j ON a.job_id = j.id WHERE a.id = ?
+  `).get(req.params.id);
+  if (!a) return res.status(404).json({ error: 'Applicant not found' });
+
+  const s = orgSettings();
+  const provider = s.ats_provider || 'ATS';
+  const payload = {
+    name: a.name, email: a.email, phone: a.phone, job: a.job_title,
+    status: a.status, ai_score: a.ai_score, ai_reasons: safeParse(a.ai_reasons) || [],
+    source: 'Staffing Co.',
+  };
+
+  if (s.ats_webhook) {
+    try {
+      const r = await fetch(s.ats_webhook, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+      });
+      return res.json({ routed: true, provider, httpStatus: r.status });
+    } catch (err) {
+      return res.status(502).json({ error: `Failed to reach ${provider}: ${err.message}` });
+    }
+  }
+  // No live webhook configured → return the export-ready payload.
+  res.json({ routed: false, provider, payload });
+});
+
+// ---------------------------------------------------------------------------
+// Stripe subscription ($950/mo) — real Checkout when keys are configured
+// ---------------------------------------------------------------------------
+router.post('/billing/checkout', auth, async (req, res) => {
+  const key = process.env.STRIPE_SECRET_KEY;
+  const price = process.env.STRIPE_PRICE_ID;
+  if (!key || !price) {
+    return res.status(503).json({ error: 'Connect Stripe (STRIPE_SECRET_KEY + STRIPE_PRICE_ID) to enable subscriptions' });
+  }
+  const origin = req.headers.origin || '';
+  const form = new URLSearchParams({
+    mode: 'subscription',
+    'line_items[0][price]': price,
+    'line_items[0][quantity]': '1',
+    success_url: `${origin}/admin/settings?sub=success`,
+    cancel_url: `${origin}/admin/settings`,
+  });
+  try {
+    const r = await fetch('https://api.stripe.com/v1/checkout/sessions', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: form,
+    });
+    const data = await r.json();
+    if (!r.ok) return res.status(502).json({ error: data.error?.message || 'Stripe error' });
+    res.json({ url: data.url });
+  } catch (err) {
+    res.status(502).json({ error: err.message });
+  }
 });
 
 function safeParse(s) {

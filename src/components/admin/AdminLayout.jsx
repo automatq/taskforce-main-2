@@ -10,6 +10,7 @@ const NAV = [
   { to: '/admin/dashboard', label: 'Dashboard', icon: 'solar:widget-2-linear' },
   { to: '/admin/jobs', label: 'Job Postings', icon: 'solar:case-minimalistic-linear' },
   { to: '/admin/applicants', label: 'Applicants', icon: 'solar:users-group-rounded-linear' },
+  { to: '/admin/agents', label: 'AI Agents', icon: 'solar:cpu-bolt-linear' },
   { to: '/admin/employers', label: 'Employers', icon: 'solar:buildings-2-linear' },
   { to: '/admin/billing', label: 'Billing', icon: 'solar:card-linear' },
   { to: '/admin/documents', label: 'Documents', icon: 'solar:document-text-linear' },

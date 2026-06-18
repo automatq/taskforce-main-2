@@ -1,0 +1,14 @@
+node_modules
+dist
+data
+.git
+.context
+.vercel
+uploads/resumes/*
+!uploads/resumes/.gitkeep
+server/.env
+**/*.db
+**/*.db-shm
+**/*.db-wal
+.DS_Store
+npm-debug.log*
