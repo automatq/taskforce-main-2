@@ -27,6 +27,9 @@ Render reads `render.yaml`, provisions a persistent disk (so the database + rés
 | `LLM_MODEL` | optional | Model name, default `MiniMax-M2`. Set to your provider's model (e.g. `deepseek-chat`, `llama-3.3-70b-versatile`). |
 | `SEED_ON_BOOT` | optional | `true` (default) seeds demo data on an empty DB; set `false` to start empty. |
 | `STRIPE_SECRET_KEY` / `STRIPE_PRICE_ID` | optional | Enables the real $950/mo Stripe subscription checkout. |
+| `QBO_CLIENT_ID` / `QBO_CLIENT_SECRET` | optional | Intuit Developer app credentials — enables live QuickBooks Online invoice sync (OAuth). The QuickBooks **CSV export** works without these. |
+| `QBO_ENV` | optional | `sandbox` (default) or `production`. |
+| `QBO_REDIRECT_URI` | optional | Must match your Intuit app's redirect URI, e.g. `https://your-app.com/api/quickbooks/callback`. |
 | `NODE_ENV` | auto | `production` makes the server serve the built frontend. |
 | `PORT` | auto | Provided by the host. |
 
@@ -58,4 +61,5 @@ Create `server/.env` with `ADMIN_PASSWORD=...` (and optionally `JWT_SECRET`, plu
 - **AI Agents** — Reviewer, Follow-up, Receptionist, Voice, Onboarder (Reviewer + Follow-up run on your LLM; voice/telephony are connect-ready)
 - **ATS routing** — export/route candidates to Bullhorn, Vincere, etc. (live API connect-ready)
 - **Stripe subscription** — $950/mo managed billing (connect Stripe keys to go live)
+- **QuickBooks** — one-click invoice CSV export, plus live QuickBooks Online sync (OAuth) when an Intuit app is configured
 - **Multi-tenant-ready schema** (`org_id` throughout)

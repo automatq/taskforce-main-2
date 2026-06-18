@@ -5,7 +5,11 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import db from '../db.js';
 import auth from '../middleware/auth.js';
+import crypto from 'crypto';
 import { scoreApplicationById, aiScoringEnabled, draftFollowUp } from '../services/aiScore.js';
+import {
+  qboConfigured, buildAuthUrl, savePendingState, getQbo, clearQbo, pushInvoice,
+} from '../services/quickbooks.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const router = Router();
@@ -420,6 +424,56 @@ router.post('/billing/checkout', auth, async (req, res) => {
   } catch (err) {
     res.status(502).json({ error: err.message });
   }
+});
+
+// ---------------------------------------------------------------------------
+// QuickBooks Online — connect (OAuth), status, disconnect, push invoice, export
+// ---------------------------------------------------------------------------
+router.get('/quickbooks/status', auth, (req, res) => {
+  const qbo = getQbo(db);
+  res.json({ configured: qboConfigured(), connected: Boolean(qbo), company: qbo?.company_name || null, connectedAt: qbo?.connected_at || null });
+});
+
+router.get('/quickbooks/connect', auth, (req, res) => {
+  if (!qboConfigured()) return res.status(503).json({ error: 'QuickBooks not configured — set QBO_CLIENT_ID and QBO_CLIENT_SECRET' });
+  const state = crypto.randomBytes(16).toString('hex');
+  savePendingState(db, state);
+  res.json({ url: buildAuthUrl(req, state) });
+});
+
+router.post('/quickbooks/disconnect', auth, (req, res) => {
+  clearQbo(db);
+  res.json({ disconnected: true });
+});
+
+router.post('/invoices/:id/quickbooks', auth, async (req, res) => {
+  const invoice = db.prepare('SELECT * FROM invoices WHERE id = ?').get(req.params.id);
+  if (!invoice) return res.status(404).json({ error: 'Invoice not found' });
+  if (!getQbo(db)) return res.status(503).json({ error: 'Connect QuickBooks in Settings first' });
+  const employer = invoice.employer_id ? db.prepare('SELECT * FROM employers WHERE id = ?').get(invoice.employer_id) : null;
+  try {
+    const qbInv = await pushInvoice(db, invoice, employer);
+    res.json({ synced: true, qbo_id: qbInv.Id, doc_number: qbInv.DocNumber });
+  } catch (err) {
+    res.status(502).json({ error: err.message });
+  }
+});
+
+// QuickBooks-ready CSV export of all invoices (works with no QBO connection).
+router.get('/invoices/export', auth, (req, res) => {
+  const rows = db.prepare(`${invoicesWithMeta} ORDER BY i.created_at DESC`).all();
+  const esc = (v) => { const s = v == null ? '' : String(v); return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
+  const header = ['InvoiceNo', 'Customer', 'InvoiceDate', 'DueDate', 'Item', 'ItemDescription', 'ItemQuantity', 'ItemRate', 'ItemAmount', 'Status'];
+  const lines = [header.join(',')];
+  for (const v of rows) {
+    lines.push([
+      v.number, v.company || '', v.issued_at || '', v.due_at || '',
+      'Staffing Services', `Staffing services ${v.number || ''}`.trim(), 1, v.amount, v.amount, v.status,
+    ].map(esc).join(','));
+  }
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', 'attachment; filename="invoices-quickbooks.csv"');
+  res.send(lines.join('\n'));
 });
 
 function safeParse(s) {

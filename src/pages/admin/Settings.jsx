@@ -10,16 +10,36 @@ export default function Settings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [qbo, setQbo] = useState(null);
   const toast = useToast();
 
   useEffect(() => {
     apiFetch('/admin/settings').then((d) => {
       setData({ name: d.name, aiScoring: d.aiScoring, stripe: d.stripe, settings: d.settings || {} });
     }).finally(() => setLoading(false));
-    if (new URLSearchParams(window.location.search).get('sub') === 'success') {
-      toast.success('Subscription active — welcome aboard!');
-    }
+    apiFetch('/admin/quickbooks/status').then(setQbo).catch(() => {});
+
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('sub') === 'success') toast.success('Subscription active — welcome aboard!');
+    const qp = params.get('qbo');
+    if (qp === 'connected') toast.success('QuickBooks connected');
+    else if (qp === 'denied') toast.error('QuickBooks authorization was denied');
+    else if (qp) toast.error('QuickBooks connection failed — please try again');
   }, []);
+
+  const connectQbo = async () => {
+    try {
+      const r = await apiFetch('/admin/quickbooks/connect');
+      window.location.href = r.url;
+    } catch (err) { toast.error(err.message); }
+  };
+  const disconnectQbo = async () => {
+    try {
+      await apiFetch('/admin/quickbooks/disconnect', { method: 'POST' });
+      setQbo((q) => ({ ...q, connected: false, company: null }));
+      toast.success('QuickBooks disconnected');
+    } catch (err) { toast.error(err.message); }
+  };
 
   const update = (k, v) => setData((d) => ({ ...d, settings: { ...d.settings, [k]: v } }));
 
@@ -103,6 +123,35 @@ export default function Settings() {
             ? 'Connected. Applications are auto-scored and the Reviewer + Follow-up agents are live.'
             : 'Set LLM_API_KEY on the server to enable AI scoring and the AI agents.'}
         </p>
+      </GlassCard>
+
+      <GlassCard className="p-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Icon name="solar:wallet-money-bold" className={`text-lg ${qbo?.connected ? 'text-emerald-300' : 'text-zinc-500'}`} />
+            <h2 className="text-sm font-semibold text-white">QuickBooks Online</h2>
+          </div>
+          <StatusBadge status={qbo?.connected ? 'active' : qbo?.configured ? 'connect' : 'draft'} />
+        </div>
+        <p className="mt-2 text-xs text-zinc-500">
+          {qbo?.connected
+            ? `Connected${qbo.company ? ` to ${qbo.company}` : ''}. New invoices can be pushed straight into QuickBooks from Billing.`
+            : qbo?.configured
+              ? 'Connect your QuickBooks company to auto-sync invoices. You can also export a QuickBooks-ready CSV from Billing anytime.'
+              : 'Set QBO_CLIENT_ID and QBO_CLIENT_SECRET (Intuit Developer app) to enable live sync. The QuickBooks CSV export in Billing works without this.'}
+        </p>
+        <div className="mt-4">
+          {qbo?.connected ? (
+            <Button variant="ghost" icon="solar:link-broken-linear" onClick={disconnectQbo}>Disconnect QuickBooks</Button>
+          ) : qbo?.configured ? (
+            <Button icon="solar:link-circle-linear" onClick={connectQbo}>Connect QuickBooks</Button>
+          ) : (
+            <div className="flex items-center gap-2 rounded-xl bg-white/[0.03] px-3.5 py-2.5 text-xs text-zinc-500 ring-1 ring-white/10">
+              <Icon name="solar:info-circle-linear" className="text-sm" />
+              CSV export is available now; live sync needs an Intuit Developer app.
+            </div>
+          )}
+        </div>
       </GlassCard>
 
       <GlassCard className="p-6">

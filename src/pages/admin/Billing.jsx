@@ -66,6 +66,25 @@ export default function Billing() {
     } catch (err) { toast.error(err.message); }
   };
 
+  const exportQbo = async () => {
+    const token = localStorage.getItem('tf_admin_token');
+    const res = await fetch('/api/admin/invoices/export', { headers: { Authorization: `Bearer ${token}` } });
+    if (!res.ok) return toast.error('Export failed');
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'invoices-quickbooks.csv'; a.click();
+    URL.revokeObjectURL(url);
+    toast.success('Exported QuickBooks CSV');
+  };
+
+  const syncQbo = async (v) => {
+    try {
+      const r = await apiFetch(`/admin/invoices/${v.id}/quickbooks`, { method: 'POST' });
+      toast.success(`${v.number} synced to QuickBooks (#${r.doc_number || r.qbo_id})`);
+    } catch (err) { toast.error(err.message); }
+  };
+
   const sum = (st) => invoices.filter((i) => st.includes(i.status)).reduce((t, i) => t + i.amount, 0);
   const q = query.trim().toLowerCase();
   const shown = invoices
@@ -95,6 +114,7 @@ export default function Billing() {
         </div>
         <div className="flex items-center gap-3">
           <SearchInput value={query} onChange={setQuery} placeholder="Search invoices…" />
+          <Button variant="ghost" icon="solar:download-minimalistic-linear" onClick={exportQbo}>Export to QuickBooks</Button>
           <Button icon="solar:add-circle-linear" onClick={openNew}>New Invoice</Button>
         </div>
       </div>
@@ -119,6 +139,7 @@ export default function Billing() {
                 <td className="px-5 py-3.5">
                   <div className="flex items-center justify-end gap-1 opacity-0 transition group-hover:opacity-100">
                     {v.status !== 'paid' && <IconButton icon="solar:check-circle-linear" title="Mark paid" onClick={() => markPaid(v)} />}
+                    <IconButton icon="solar:cloud-upload-linear" title="Sync to QuickBooks" onClick={() => syncQbo(v)} />
                     <IconButton icon="solar:pen-linear" title="Edit" onClick={() => openEdit(v)} />
                     <IconButton icon="solar:trash-bin-trash-linear" title="Delete" variant="danger" onClick={() => remove(v)} />
                   </div>

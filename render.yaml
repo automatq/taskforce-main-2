@@ -27,3 +27,12 @@ services:
         value: https://api.minimax.io/v1   # MiniMax; or DeepSeek/Groq/OpenRouter/Together base URL
       - key: LLM_MODEL
         value: MiniMax-M2         # set to your chosen model
+      # --- QuickBooks Online (optional). CSV export works without these. ---
+      - key: QBO_CLIENT_ID
+        sync: false               # Intuit Developer app — enables live invoice sync
+      - key: QBO_CLIENT_SECRET
+        sync: false
+      - key: QBO_ENV
+        value: production         # or 'sandbox'
+      - key: QBO_REDIRECT_URI
+        sync: false               # must match your Intuit app, e.g. https://<app>.onrender.com/api/quickbooks/callback

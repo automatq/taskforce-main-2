@@ -13,6 +13,7 @@ import db from './db.js';
 import jobsRouter from './routes/jobs.js';
 import applyRouter from './routes/apply.js';
 import adminRouter from './routes/admin.js';
+import quickbooksRouter from './routes/quickbooks.js';
 
 // ---------------------------------------------------------------------------
 // First-boot bootstrap — makes 1-click deploys work with zero manual setup.
@@ -52,6 +53,7 @@ app.use(express.json());
 app.use('/api/jobs', jobsRouter);
 app.use('/api/jobs', applyRouter);
 app.use('/api/admin', adminRouter);
+app.use('/api/quickbooks', quickbooksRouter); // public OAuth callback
 
 // Serve frontend in production
 if (process.env.NODE_ENV === 'production') {

@@ -102,6 +102,10 @@ addColumn('applications', 'ai_score', 'ai_score INTEGER');
 addColumn('applications', 'ai_reasons', 'ai_reasons TEXT'); // JSON array of strings
 addColumn('applications', 'updated_at', 'updated_at TEXT');
 
+// System-managed integration tokens (QuickBooks, etc.) — kept separate from the
+// user-editable `settings` JSON so saving the profile form can't clobber them.
+addColumn('organizations', 'integrations', "integrations TEXT NOT NULL DEFAULT '{}'");
+
 // Backfill derived/timestamp columns once.
 db.exec(`
   UPDATE jobs SET status = CASE WHEN is_active = 1 THEN 'active' ELSE 'draft' END
