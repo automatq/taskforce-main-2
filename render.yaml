@@ -20,5 +20,10 @@ services:
         sync: false               # you set this in the deploy form (your login password)
       - key: SEED_ON_BOOT
         value: "true"             # seed demo data on first boot
-      - key: ANTHROPIC_API_KEY
-        sync: false               # optional — enables live AI scoring + agents
+      # --- AI features (optional). Works with any OpenAI-compatible provider. ---
+      - key: LLM_API_KEY
+        sync: false               # your provider key (e.g. MiniMax) — enables AI scoring + agents
+      - key: LLM_BASE_URL
+        value: https://api.minimax.io/v1   # MiniMax; or DeepSeek/Groq/OpenRouter/Together base URL
+      - key: LLM_MODEL
+        value: MiniMax-M2         # set to your chosen model

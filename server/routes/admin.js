@@ -169,7 +169,7 @@ router.patch('/applicants/:id', auth, (req, res) => {
 // Trigger (or re-run) AI scoring for one applicant.
 router.post('/applicants/:id/score', auth, async (req, res) => {
   if (!aiScoringEnabled()) {
-    return res.status(503).json({ error: 'AI scoring unavailable — set ANTHROPIC_API_KEY' });
+    return res.status(503).json({ error: 'AI scoring unavailable — set LLM_API_KEY' });
   }
   const result = await scoreApplicationById(db, Number(req.params.id));
   if (!result) return res.status(404).json({ error: 'Could not score applicant' });
@@ -334,10 +334,10 @@ router.get('/agents', auth, (req, res) => {
   res.json([
     { key: 'reviewer', name: 'The Reviewer', icon: 'solar:star-fall-2-bold-duotone',
       desc: 'Screens every inbound résumé against the job and scores fit 0–100 with reasons.',
-      status: ai ? 'active' : 'setup', metric: ai ? `${scored} screened · avg ${avg || 0}` : 'Add ANTHROPIC_API_KEY' },
+      status: ai ? 'active' : 'setup', metric: ai ? `${scored} screened · avg ${avg || 0}` : 'Add LLM_API_KEY' },
     { key: 'followup', name: 'The Follow-up', icon: 'solar:chat-round-line-bold-duotone',
       desc: 'Drafts warm, personalized follow-up messages to keep candidates engaged.',
-      status: ai ? 'active' : 'setup', metric: ai ? 'Ready to draft' : 'Add ANTHROPIC_API_KEY', action: 'draft' },
+      status: ai ? 'active' : 'setup', metric: ai ? 'Ready to draft' : 'Add LLM_API_KEY', action: 'draft' },
     { key: 'receptionist', name: 'The Receptionist', icon: 'solar:phone-calling-rounded-bold-duotone',
       desc: 'Answers inbound calls & chats 24/7 and captures applicants into the pipeline.',
       status: s.phone_provider ? 'active' : 'connect', metric: s.phone_provider || 'Connect a phone number' },
@@ -351,7 +351,7 @@ router.get('/agents', auth, (req, res) => {
 });
 
 router.post('/agents/followup', auth, async (req, res) => {
-  if (!aiScoringEnabled()) return res.status(503).json({ error: 'Connect ANTHROPIC_API_KEY to use AI agents' });
+  if (!aiScoringEnabled()) return res.status(503).json({ error: 'Connect LLM_API_KEY to use AI agents' });
   const a = db.prepare('SELECT * FROM applications WHERE id = ?').get(req.body.applicant_id);
   if (!a) return res.status(404).json({ error: 'Applicant not found' });
   const j = db.prepare('SELECT * FROM jobs WHERE id = ?').get(a.job_id);

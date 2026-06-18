@@ -167,7 +167,7 @@ export default function Dashboard() {
             <p className="mt-2 text-xs text-zinc-500">
               {stats.aiScoring
                 ? 'Active — new applications are auto-scored by Claude against the job.'
-                : 'Inactive — set ANTHROPIC_API_KEY to auto-score new applicants 0–100.'}
+                : 'Inactive — set LLM_API_KEY to auto-score new applicants 0–100.'}
             </p>
             <div className="mt-3"><StatusBadge status={stats.aiScoring ? 'active' : 'draft'} /></div>
           </GlassCard>

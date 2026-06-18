@@ -205,7 +205,7 @@ export default function Applicants() {
                 </>
               ) : (
                 <p className="mt-3 text-sm text-zinc-500">
-                  {aiScoring ? 'Not yet scored. Click Re-score to evaluate this résumé against the job.' : 'AI scoring is inactive — set ANTHROPIC_API_KEY to enable.'}
+                  {aiScoring ? 'Not yet scored. Click Re-score to evaluate this résumé against the job.' : 'AI scoring is inactive — set LLM_API_KEY to enable.'}
                 </p>
               )}
             </div>

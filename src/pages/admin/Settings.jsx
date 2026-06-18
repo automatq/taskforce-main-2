@@ -101,7 +101,7 @@ export default function Settings() {
         <p className="mt-2 text-xs text-zinc-500">
           {data.aiScoring
             ? 'Connected. Applications are auto-scored and the Reviewer + Follow-up agents are live.'
-            : 'Set ANTHROPIC_API_KEY on the server to enable AI scoring and the AI agents.'}
+            : 'Set LLM_API_KEY on the server to enable AI scoring and the AI agents.'}
         </p>
       </GlassCard>
 
