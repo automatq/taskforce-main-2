@@ -97,7 +97,7 @@ export default function JobDetail() {
               <iconify-icon icon="solar:arrow-right-linear" className="text-lg"></iconify-icon>
             </button>
             <a
-              href="tel:519-826-5252"
+              href="tel:8005550100"
               className="flex-1 border border-stone-200 text-stone-900 rounded-full py-4 font-normal text-lg hover:bg-stone-50 transition-colors flex items-center justify-center gap-2"
             >
               <iconify-icon icon="solar:phone-linear" className="text-lg"></iconify-icon>

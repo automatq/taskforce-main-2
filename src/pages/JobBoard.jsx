@@ -28,7 +28,7 @@ export default function JobBoard() {
             Job <span className="italic text-[#8F877C]">Board</span>
           </h1>
           <p className="text-xl text-stone-500 font-montserrat font-light max-w-2xl mx-auto">
-            Browse available positions at Task Force Staffing Solutions. We place workers across Guelph and surrounding areas.
+            Browse available positions with our team. We place skilled workers across your local area.
           </p>
         </div>
 
@@ -44,11 +44,11 @@ export default function JobBoard() {
               We don't have any openings listed right now, but we're always looking for great people. Give us a call or drop by our office.
             </p>
             <a
-              href="tel:519-826-5252"
+              href="tel:8005550100"
               className="inline-flex items-center gap-2 bg-[#817872] text-white rounded-full px-8 py-3 font-normal hover:bg-stone-800 transition-colors"
             >
               <iconify-icon icon="solar:phone-linear" className="text-lg"></iconify-icon>
-              Call 519-826-5252
+              Call (800) 555-0100
             </a>
           </div>
         ) : (

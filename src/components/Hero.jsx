@@ -23,16 +23,16 @@ export default function Hero() {
       <div className="flex-1 w-full z-10 relative">
         <div className="inline-flex gap-2 bg-white/50 border-stone-200 border rounded-full mb-8 pt-1 pr-3 pb-1 pl-3 backdrop-blur-sm gap-x-2 gap-y-2 items-center">
           <span className="w-2 h-2 rounded-full bg-[#C1B6A9]"></span>
-          <span className="text-base font-normal text-stone-600">Guelph's Trusted Staffing Agency — Over 23 Years Strong</span>
+          <span className="text-base font-normal text-stone-600">Your Trusted Local Staffing Agency</span>
         </div>
 
         <h1 ref={revealRef} className="lg:text-8xl leading-[1.05] text-6xl tracking-tight mb-8 flex flex-col font-normal">
           <span className="cta-bounce-enter block text-[#2C2B29] font-playfair">Find Talent.</span>
           <span className="cta-bounce-enter block text-[#8F877C] font-playfair">Find Work.</span>
-          <span className="cta-bounce-enter block font-playfair italic text-[#C8C2B7]">Task Force.</span>
+          <span className="cta-bounce-enter block font-playfair italic text-[#C8C2B7]">Made simple.</span>
         </h1>
 
-        <p className="leading-relaxed text-2xl font-light text-stone-500 font-montserrat max-w-2xl mb-10">We match the right people with the right jobs. From screening and training to personality matching — we've got employers and job seekers covered across Guelph and surrounding areas.</p>
+        <p className="leading-relaxed text-2xl font-light text-stone-500 font-montserrat max-w-2xl mb-10">We match the right people with the right jobs. From screening and training to personality matching — we've got employers and job seekers covered across your local area.</p>
 
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
           <Link to="/jobs" className="hover:bg-stone-800 transition-all sm:w-auto text-xl font-normal text-white bg-[#817872] w-full rounded-full pt-4 pr-8 pb-4 pl-8 shadow-xl text-center">Search Jobs Now</Link>

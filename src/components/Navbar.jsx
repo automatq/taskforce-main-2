@@ -15,9 +15,9 @@ export default function Navbar() {
     <nav className="fixed top-0 w-full z-50 bg-[#FAFAFA]/80 backdrop-blur-md border-b border-stone-200/50">
       <div className="lg:px-8 flex h-20 max-w-7xl mr-auto ml-auto pr-6 pl-6 items-center justify-between">
         <Link to="/" className="flex items-center gap-1 cursor-pointer">
-          <span className="text-[#C1B6A9] font-light tracking-widest text-2xl uppercase">Task</span>
+          <span className="text-[#C1B6A9] font-light tracking-widest text-2xl uppercase">Staffing</span>
           <div className="relative flex items-center">
-            <span className="text-[#827A71] font-normal text-2xl tracking-tight -ml-1">Force</span>
+            <span className="text-[#827A71] font-normal text-2xl tracking-tight ml-1.5">Co.</span>
             <div className="absolute -bottom-1 -right-2 w-8 h-0.5 bg-[#827A71]/60 rounded-full rotate-[-5deg]"></div>
           </div>
         </Link>

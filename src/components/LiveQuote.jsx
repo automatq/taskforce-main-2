@@ -142,7 +142,7 @@ export default function LiveQuote() {
                   </div>
                   <div className="text-right">
                     <p className="text-xs font-medium text-stone-500 uppercase tracking-widest mb-1">Serving</p>
-                    <p className="text-xl font-normal text-stone-900 tracking-tight">Guelph & Area</p>
+                    <p className="text-xl font-normal text-stone-900 tracking-tight">Your Area</p>
                   </div>
                 </div>
 
@@ -240,7 +240,7 @@ export default function LiveQuote() {
                                 </div>
                                 <div>
                                   <h4 className="font-normal text-stone-900 tracking-tight text-lg">You're Placed!</h4>
-                                  <p className="text-sm text-stone-500 font-light mt-1">Enjoy weekly pay, flexible scheduling, and ongoing support from the Task Force team.</p>
+                                  <p className="text-sm text-stone-500 font-light mt-1">Enjoy weekly pay, flexible scheduling, and ongoing support from our team.</p>
                                 </div>
                               </div>
 

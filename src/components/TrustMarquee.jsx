@@ -3,7 +3,7 @@ export default function TrustMarquee() {
     <>
       <div className="flex items-center gap-2.5 text-stone-600">
         <iconify-icon icon="solar:verified-check-linear" className="text-[#827A71] text-xl" strokeWidth="1.5"></iconify-icon>
-        <span className="text-[11px] sm:text-xs uppercase tracking-[0.15em] font-medium font-montserrat">23+ Years Experience</span>
+        <span className="text-[11px] sm:text-xs uppercase tracking-[0.15em] font-medium font-montserrat">Experienced Team</span>
       </div>
       <div className="flex items-center gap-2.5 text-stone-600">
         <iconify-icon icon="solar:users-group-rounded-linear" className="text-[#827A71] text-xl" strokeWidth="1.5"></iconify-icon>
@@ -23,7 +23,7 @@ export default function TrustMarquee() {
       </div>
       <div className="flex items-center gap-2.5 text-stone-600">
         <iconify-icon icon="solar:map-point-linear" className="text-[#827A71] text-xl" strokeWidth="1.5"></iconify-icon>
-        <span className="text-[11px] sm:text-xs uppercase tracking-[0.15em] font-medium font-montserrat">Guelph & Surrounding Areas</span>
+        <span className="text-[11px] sm:text-xs uppercase tracking-[0.15em] font-medium font-montserrat">Your Local Area</span>
       </div>
     </>
   );

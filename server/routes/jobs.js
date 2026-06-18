@@ -5,7 +5,7 @@ const router = Router();
 
 router.get('/', (req, res) => {
   const jobs = db.prepare(
-    'SELECT id, title, location, type, pay_range, created_at FROM jobs WHERE is_active = 1 ORDER BY created_at DESC'
+    'SELECT id, title, location, type, pay_range, rate, created_at FROM jobs WHERE is_active = 1 ORDER BY created_at DESC'
   ).all();
   res.json(jobs);
 });

@@ -14,14 +14,14 @@ const FAQ_DATA = [
     question: 'What types of jobs do you offer?',
     bgImage: 'https://images.unsplash.com/photo-1581092918056-0c4c3acd3789?w=800&q=80',
     title: 'Job Types',
-    answer: 'We place workers across a wide range of industries including manufacturing, warehousing, food production, construction, automotive, administration, customer service, logistics, and more. We offer temp, temp-to-perm, and permanent positions throughout Guelph, Cambridge, Kitchener-Waterloo, Fergus, and surrounding areas.'
+    answer: 'We place workers across a wide range of industries including manufacturing, warehousing, food production, construction, automotive, administration, customer service, logistics, and more. We offer temp, temp-to-perm, and permanent positions throughout your local area.'
   },
   {
     icon: 'wallet-money-linear',
     question: 'How does pay and scheduling work?',
     bgImage: 'https://images.unsplash.com/photo-1521737604893-d14cc237f11d?w=800&q=80',
     title: 'Pay & Schedule',
-    answer: 'All Task Force employees are paid weekly. We offer flexible scheduling based on your needs — whether you prefer full-time, part-time, or variable hours. We believe in matching not just your skills but your lifestyle. We also provide equal opportunity positions, ensuring every employee gets the chance they deserve.'
+    answer: 'All our employees are paid weekly. We offer flexible scheduling based on your needs — whether you prefer full-time, part-time, or variable hours. We believe in matching not just your skills but your lifestyle. We also provide equal opportunity positions, ensuring every employee gets the chance they deserve.'
   }
 ];
 
@@ -94,7 +94,7 @@ export default function Faq() {
           <span className="text-[#2C2B29] font-playfair">Frequently Asked </span><span className="font-instrument-serif italic text-[#8F877C]">Questions</span>
         </h2>
 
-        <p className="text-xl text-[#827A71] font-montserrat font-light max-w-3xl mx-auto leading-relaxed">Everything you need to know about working with Task Force, from getting started to getting paid.</p>
+        <p className="text-xl text-[#827A71] font-montserrat font-light max-w-3xl mx-auto leading-relaxed">Everything you need to know about working with us, from getting started to getting paid.</p>
       </div>
 
       <div

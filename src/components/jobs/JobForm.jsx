@@ -5,7 +5,7 @@ const JOB_TYPES = ['Full-Time', 'Part-Time', 'Temporary', 'Temp to Perm', 'Perma
 export default function JobForm({ job, onSave, onCancel }) {
   const [form, setForm] = useState({
     title: job?.title || '',
-    location: job?.location || 'Guelph, ON',
+    location: job?.location || 'Your City, ST',
     type: job?.type || 'Full-Time',
     description: job?.description || '',
     requirements: job?.requirements || '',
@@ -34,7 +34,7 @@ export default function JobForm({ job, onSave, onCancel }) {
         </div>
         <div>
           <label className="block text-sm font-medium text-stone-700 mb-1.5 font-montserrat">Location</label>
-          <input type="text" required value={form.location} onChange={e => update('location', e.target.value)} className={inputClass} placeholder="Guelph, ON" />
+          <input type="text" required value={form.location} onChange={e => update('location', e.target.value)} className={inputClass} placeholder="Your City, ST" />
         </div>
         <div>
           <label className="block text-sm font-medium text-stone-700 mb-1.5 font-montserrat">Job Type</label>

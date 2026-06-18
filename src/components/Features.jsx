@@ -91,7 +91,7 @@ export default function Features() {
             </div>
             <h3 className="text-2xl lg:text-3xl font-normal text-white tracking-tight mb-4 mt-auto">Perfect Match</h3>
             <p className="leading-relaxed text-sm lg:text-base text-stone-300 font-montserrat font-light">
-              We match your personality to the right job. The best matches make employers and employees happiest — that's been our philosophy for over 23 years.
+              We match your personality to the right job. The best matches make employers and employees happiest — that's been our philosophy from day one.
             </p>
           </div>
 

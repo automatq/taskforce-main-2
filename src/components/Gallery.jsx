@@ -57,7 +57,7 @@ export default function Gallery() {
             <span className="cta-bounce-enter block text-[#C1B6A9] font-playfair">Warehousing.</span>
             <span className="cta-bounce-enter block font-playfair italic text-[#827A71]">And beyond.</span>
           </h2>
-          <p className="cta-bounce-enter text-xl lg:text-2xl text-stone-300 font-montserrat font-light leading-relaxed max-w-lg mx-auto">From factory floors to front offices, we place skilled workers across dozens of industries throughout Guelph and surrounding areas.</p>
+          <p className="cta-bounce-enter text-xl lg:text-2xl text-stone-300 font-montserrat font-light leading-relaxed max-w-lg mx-auto">From factory floors to front offices, we place skilled workers across dozens of industries throughout your local area.</p>
         </div>
 
         <div ref={el => itemsRef.current[0] = el} className="parallax-item absolute w-64 lg:w-80 p-2 bg-[#2C2B29]/30 backdrop-blur-xl border border-white/10 shadow-2xl shadow-black/50 rounded-2xl will-change-transform z-10" style={{top: '-5%', left: '8%'}} data-speed="0.8" data-rotation="-6deg">
