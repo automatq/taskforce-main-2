@@ -15,6 +15,7 @@ import applyRouter from './routes/apply.js';
 import adminRouter from './routes/admin.js';
 import quickbooksRouter from './routes/quickbooks.js';
 import stripeRouter from './routes/stripe.js';
+import timesheetPublicRouter from './routes/timesheetPublic.js';
 
 // ---------------------------------------------------------------------------
 // First-boot bootstrap — makes 1-click deploys work with zero manual setup.
@@ -67,6 +68,7 @@ app.use('/api/jobs', jobsRouter);
 app.use('/api/jobs', applyRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/quickbooks', quickbooksRouter); // public OAuth callback
+app.use('/api/timesheet', timesheetPublicRouter); // public, token-authenticated (no login)
 
 // Serve frontend in production
 if (process.env.NODE_ENV === 'production') {

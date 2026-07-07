@@ -73,6 +73,24 @@ db.exec(`
     due_at TEXT,
     created_at TEXT DEFAULT (datetime('now'))
   );
+
+  CREATE TABLE IF NOT EXISTS timesheets (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    org_id INTEGER NOT NULL DEFAULT 1 REFERENCES organizations(id) ON DELETE CASCADE,
+    application_id INTEGER NOT NULL REFERENCES applications(id) ON DELETE CASCADE,
+    job_id INTEGER NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
+    week_start TEXT NOT NULL, -- ISO date (Monday) — one row per candidate per week
+    daily_hours TEXT NOT NULL DEFAULT '{}', -- JSON {mon,tue,wed,thu,fri,sat,sun}
+    hours REAL NOT NULL DEFAULT 0, -- sum of daily_hours, denormalized for fast aggregation
+    notes TEXT,
+    status TEXT NOT NULL DEFAULT 'submitted', -- submitted | approved | rejected | invoiced
+    submitted_at TEXT DEFAULT (datetime('now')),
+    reviewed_at TEXT,
+    reviewed_note TEXT,
+    invoice_id INTEGER REFERENCES invoices(id) ON DELETE SET NULL,
+    created_at TEXT DEFAULT (datetime('now')),
+    UNIQUE(application_id, week_start)
+  );
 `);
 
 // ---------------------------------------------------------------------------
@@ -102,6 +120,7 @@ addColumn('applications', 'ai_score', 'ai_score INTEGER');
 addColumn('applications', 'ai_reasons', 'ai_reasons TEXT'); // JSON array of strings
 addColumn('applications', 'updated_at', 'updated_at TEXT');
 addColumn('applications', 'ai_score_error', 'ai_score_error TEXT'); // last scoring failure reason, if any
+addColumn('applications', 'timesheet_token', 'timesheet_token TEXT'); // no-login link for the candidate to submit hours
 
 addColumn('invoices', 'qbo_invoice_id', 'qbo_invoice_id TEXT'); // set once pushed to QuickBooks — prevents duplicate sync
 addColumn('invoices', 'qbo_synced_at', 'qbo_synced_at TEXT');
@@ -124,6 +143,10 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_jobs_employer ON jobs(employer_id);
   CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status);
   CREATE INDEX IF NOT EXISTS idx_invoices_employer ON invoices(employer_id);
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_applications_timesheet_token ON applications(timesheet_token);
+  CREATE INDEX IF NOT EXISTS idx_timesheets_application ON timesheets(application_id);
+  CREATE INDEX IF NOT EXISTS idx_timesheets_job ON timesheets(job_id);
+  CREATE INDEX IF NOT EXISTS idx_timesheets_status ON timesheets(status);
 `);
 
 // Ensure the default organization exists.

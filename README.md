@@ -1,6 +1,6 @@
 # Staffing Co. — Staffing Agency Platform
 
-A full staffing-agency SaaS template: a branded public **job board + apply flow**, and a premium dark **admin console** (ATS + CRM) with AI candidate scoring, a candidate pipeline, employer CRM, invoicing, an AI agents dashboard, ATS routing, and Stripe subscription billing.
+A full staffing-agency SaaS template: a branded public **job board + apply flow**, and a premium dark **admin console** (ATS + CRM) with AI candidate scoring, a candidate pipeline, employer CRM, timesheets + payroll, invoicing, an AI agents dashboard, ATS routing, and Stripe subscription billing.
 
 Stack: Vite + React (frontend) · Express + better-sqlite3 (backend) · any OpenAI-compatible LLM (MiniMax, DeepSeek, Groq, …) for the AI features.
 
@@ -58,7 +58,8 @@ Create `server/.env` with `ADMIN_PASSWORD=...` (and optionally `JWT_SECRET`, plu
 ## Features
 
 - **Branded job board** + candidate apply flow (résumé upload)
-- **Admin console**: Dashboard KPIs (fill rate, time-to-fill, margin), Jobs, Applicants pipeline, Employers CRM, Billing/invoices, Documents, Settings
+- **Admin console**: Dashboard KPIs (fill rate, time-to-fill, margin), Jobs, Applicants pipeline, Employers CRM, Timesheets, Billing/invoices, Documents, Settings
+- **Timesheets & payroll** — hired candidates log hours via a no-login link (`/timesheet/:token`, texted or emailed — no portal account needed); the agency approves in-app, then one click either exports a payroll-ready CSV (ADP/Gusto/Paychex-style) or batch-generates draft client invoices from approved hours using each job's bill rate
 - **AI candidate scoring** — résumé vs job, 0–100 + reasons, auto-scored on apply (your LLM provider)
 - **Daily AI shortlist** — the top-5 candidates surfaced for you
 - **AI Agents** — Reviewer, Follow-up, Receptionist, Voice, Onboarder (Reviewer + Follow-up run on your LLM; voice/telephony are connect-ready)

@@ -51,7 +51,8 @@ const wipe = db.transaction(() => {
     DELETE FROM invoices;
     DELETE FROM jobs;
     DELETE FROM employers;
-    DELETE FROM sqlite_sequence WHERE name IN ('applications','invoices','jobs','employers');
+    DELETE FROM timesheets;
+    DELETE FROM sqlite_sequence WHERE name IN ('applications','invoices','jobs','employers','timesheets');
   `);
 });
 wipe();
@@ -146,8 +147,9 @@ const insertApplicant = db.prepare(
   `INSERT INTO applications (org_id, job_id, name, email, phone, resume_path, status, ai_score, ai_reasons, created_at, updated_at)
    VALUES (1, @job_id, @name, @email, @phone, @resume, @status, @score, @reasons, datetime('now', @ago), datetime('now', @ago))`
 );
+const applicationId = {};
 for (const a of applicants) {
-  insertApplicant.run({
+  const { lastInsertRowid } = insertApplicant.run({
     job_id: jobId[a.job],
     name: a.name,
     email: a.email,
@@ -158,6 +160,7 @@ for (const a of applicants) {
     reasons: JSON.stringify(reasonsFor(a.score)),
     ago: a.ago,
   });
+  applicationId[a.name] = lastInsertRowid;
 }
 
 // ---------------------------------------------------------------------------
@@ -179,10 +182,50 @@ for (const v of invoices) {
   insertInvoice.run({ employer_id: employerId[v.employer], number: v.number, amount: v.amount, status: v.status, issued: v.issued, due: v.due });
 }
 
+// ---------------------------------------------------------------------------
+// Timesheets — hours logged by the two hired candidates, feeding payroll +
+// the margin math already on their jobs (rate vs. bill_rate).
+// ---------------------------------------------------------------------------
+function mondayWeeksAgo(n) {
+  const d = new Date();
+  const day = d.getDay();
+  d.setDate(d.getDate() + (day === 0 ? -6 : 1 - day) - n * 7);
+  return d.toISOString().slice(0, 10);
+}
+const fullWeek = (h) => ({ mon: h, tue: h, wed: h, thu: h, fri: h, sat: 0, sun: 0 });
+const sumHours = (h) => Object.values(h).reduce((t, v) => t + v, 0);
+
+const timesheets = [
+  // Owen Bailey — Warehouse Associate @ Acme Logistics ($22/hr pay, $34.10/hr bill)
+  { applicant: 'Owen Bailey', job: 'j-1041', week: mondayWeeksAgo(2), daily: fullWeek(8), status: 'approved' },
+  { applicant: 'Owen Bailey', job: 'j-1041', week: mondayWeeksAgo(1), daily: { ...fullWeek(8), fri: 6 }, status: 'approved' },
+  { applicant: 'Owen Bailey', job: 'j-1041', week: mondayWeeksAgo(0), daily: { mon: 8, tue: 8, wed: 8, thu: 0, fri: 0, sat: 0, sun: 0 }, status: 'submitted' },
+  // Naomi Beck — Retail Associate @ Maple Outfitters ($19/hr pay, $29.45/hr bill), part-time
+  { applicant: 'Naomi Beck', job: 'j-1035', week: mondayWeeksAgo(2), daily: fullWeek(6), status: 'approved' },
+  { applicant: 'Naomi Beck', job: 'j-1035', week: mondayWeeksAgo(1), daily: fullWeek(6), status: 'submitted' },
+];
+const insertTimesheet = db.prepare(
+  `INSERT INTO timesheets (org_id, application_id, job_id, week_start, daily_hours, hours, status, submitted_at, reviewed_at)
+   VALUES (1, @application_id, @job_id, @week_start, @daily_hours, @hours, @status,
+           datetime('now', @submitted_ago), CASE WHEN @status = 'approved' THEN datetime('now', @submitted_ago) ELSE NULL END)`
+);
+for (const t of timesheets) {
+  insertTimesheet.run({
+    application_id: applicationId[t.applicant],
+    job_id: jobId[t.job],
+    week_start: t.week,
+    daily_hours: JSON.stringify(t.daily),
+    hours: sumHours(t.daily),
+    status: t.status,
+    submitted_ago: `-${t.week === mondayWeeksAgo(0) ? 1 : 7} days`,
+  });
+}
+
 const counts = {
   employers: db.prepare('SELECT COUNT(*) n FROM employers').get().n,
   jobs: db.prepare('SELECT COUNT(*) n FROM jobs').get().n,
   applicants: db.prepare('SELECT COUNT(*) n FROM applications').get().n,
   invoices: db.prepare('SELECT COUNT(*) n FROM invoices').get().n,
+  timesheets: db.prepare('SELECT COUNT(*) n FROM timesheets').get().n,
 };
 console.log('Seeded:', counts);

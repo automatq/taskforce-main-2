@@ -61,6 +61,8 @@ const STATUS_COLORS = {
   Pro: 'sky', Basic: 'zinc', Trial: 'amber',
   // agents
   setup: 'amber', connect: 'sky',
+  // timesheets
+  submitted: 'amber', approved: 'emerald', invoiced: 'sky',
 };
 
 export function StatusBadge({ status }) {

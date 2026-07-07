@@ -57,6 +57,14 @@ export default function Applicants() {
     setScoring(false);
   };
 
+  const copyTimesheetLink = async (id) => {
+    try {
+      const r = await apiFetch(`/admin/applicants/${id}/timesheet-link`);
+      await navigator.clipboard?.writeText(r.url);
+      toast.success('Timesheet link copied — send it to the candidate');
+    } catch (err) { toast.error(err.message); }
+  };
+
   const routeToAts = async (id) => {
     try {
       const r = await apiFetch(`/admin/applicants/${id}/route`, { method: 'POST' });
@@ -225,6 +233,9 @@ export default function Applicants() {
               )}
             </div>
 
+            {active.status === 'hired' && (
+              <Button variant="ghost" icon="solar:clock-square-linear" onClick={() => copyTimesheetLink(active.id)} className="w-full justify-center">Copy Timesheet Link</Button>
+            )}
             <div className="flex gap-2">
               <Button variant="ghost" icon="solar:download-linear" onClick={() => downloadResume(active.id, active.name)} className="flex-1 justify-center">Résumé</Button>
               <Button variant="ghost" icon="solar:upload-square-linear" onClick={() => routeToAts(active.id)} className="flex-1 justify-center">Route to ATS</Button>

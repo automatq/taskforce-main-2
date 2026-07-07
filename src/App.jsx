@@ -6,6 +6,7 @@ import IntroLoader from './components/IntroLoader';
 import LandingPage from './components/LandingPage';
 import JobBoard from './pages/JobBoard';
 import JobDetail from './pages/JobDetail';
+import TimesheetSubmit from './pages/TimesheetSubmit';
 import AdminLogin from './pages/AdminLogin';
 import AdminLayout from './components/admin/AdminLayout';
 import Dashboard from './pages/admin/Dashboard';
@@ -13,6 +14,7 @@ import Jobs from './pages/admin/Jobs';
 import Applicants from './pages/admin/Applicants';
 import Agents from './pages/admin/Agents';
 import Employers from './pages/admin/Employers';
+import Timesheets from './pages/admin/Timesheets';
 import Billing from './pages/admin/Billing';
 import Documents from './pages/admin/Documents';
 import Settings from './pages/admin/Settings';
@@ -52,6 +54,7 @@ function App() {
           <Route path="applicants" element={<Applicants />} />
           <Route path="agents" element={<Agents />} />
           <Route path="employers" element={<Employers />} />
+          <Route path="timesheets" element={<Timesheets />} />
           <Route path="billing" element={<Billing />} />
           <Route path="documents" element={<Documents />} />
           <Route path="settings" element={<Settings />} />
@@ -62,6 +65,7 @@ function App() {
           <Route path="/" element={<LandingPage />} />
           <Route path="/jobs" element={<JobBoard />} />
           <Route path="/jobs/:id" element={<JobDetail />} />
+          <Route path="/timesheet/:token" element={<TimesheetSubmit />} />
         </Route>
       </Routes>
     </AuthProvider>

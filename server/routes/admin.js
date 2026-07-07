@@ -513,6 +513,184 @@ router.get('/invoices/export', auth, (req, res) => {
   res.send(lines.join('\n'));
 });
 
+// ---------------------------------------------------------------------------
+// Timesheets — the differentiator most ATS platforms at this price tier lack.
+// Candidates submit hours via a no-login link (see routes/timesheetPublic.js);
+// the agency approves here, then either exports for payroll or batch-generates
+// client invoices straight from approved hours using each job's bill_rate.
+// ---------------------------------------------------------------------------
+const TIMESHEET_STATUSES = ['submitted', 'approved', 'rejected', 'invoiced'];
+const DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+
+function sumDailyHours(daily) {
+  return DAYS.reduce((t, d) => t + (Number(daily?.[d]) || 0), 0);
+}
+function csvEscape(v) {
+  const s = v == null ? '' : String(v);
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+const timesheetsWithMeta = `
+  SELECT t.*, a.name AS candidate_name, a.email AS candidate_email,
+         j.title AS job_title, j.rate, j.bill_rate,
+         e.id AS employer_id, e.name AS company
+  FROM timesheets t
+  JOIN applications a ON t.application_id = a.id
+  JOIN jobs j ON t.job_id = j.id
+  LEFT JOIN employers e ON j.employer_id = e.id
+`;
+function withAmounts(row) {
+  const daily_hours = safeParse(row.daily_hours) || {};
+  const pay_amount = row.rate != null ? Math.round(row.hours * row.rate * 100) / 100 : null;
+  const bill_amount = row.bill_rate != null ? Math.round(row.hours * row.bill_rate * 100) / 100 : null;
+  return { ...row, daily_hours, pay_amount, bill_amount };
+}
+
+router.get('/timesheets', auth, (req, res) => {
+  const { status } = req.query;
+  let sql = timesheetsWithMeta;
+  const args = [];
+  if (status && TIMESHEET_STATUSES.includes(status)) { sql += ' WHERE t.status = ?'; args.push(status); }
+  sql += ' ORDER BY t.week_start DESC, t.submitted_at DESC';
+  res.json(db.prepare(sql).all(...args).map(withAmounts));
+});
+
+// Manual entry (e.g. hours phoned in by the client) — upserts the week if the
+// candidate already self-submitted it and it's still pending review.
+router.post('/timesheets', auth, (req, res) => {
+  const { application_id, week_start, daily_hours, notes } = req.body;
+  if (!application_id || !week_start) return res.status(400).json({ error: 'Candidate and week are required' });
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(week_start) || Number.isNaN(Date.parse(week_start))) {
+    return res.status(400).json({ error: 'Enter a valid week date (YYYY-MM-DD)' });
+  }
+
+  const app = db.prepare('SELECT id, job_id FROM applications WHERE id = ?').get(application_id);
+  if (!app) return res.status(404).json({ error: 'Applicant not found' });
+
+  const hours = sumDailyHours(daily_hours);
+  const existing = db.prepare('SELECT id, status FROM timesheets WHERE application_id = ? AND week_start = ?').get(application_id, week_start);
+  if (existing && existing.status !== 'submitted') {
+    return res.status(409).json({ error: `A ${existing.status} timesheet already exists for this candidate/week — edit it instead of creating a new one.` });
+  }
+
+  let id;
+  if (existing) {
+    db.prepare('UPDATE timesheets SET daily_hours = ?, hours = ?, notes = ? WHERE id = ?')
+      .run(JSON.stringify(daily_hours || {}), hours, notes || '', existing.id);
+    id = existing.id;
+  } else {
+    const result = db.prepare(
+      `INSERT INTO timesheets (org_id, application_id, job_id, week_start, daily_hours, hours, notes, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 'submitted')`
+    ).run(ORG_ID, application_id, app.job_id, week_start, JSON.stringify(daily_hours || {}), hours, notes || '');
+    id = result.lastInsertRowid;
+  }
+  res.status(201).json(withAmounts(db.prepare(`${timesheetsWithMeta} WHERE t.id = ?`).get(id)));
+});
+
+router.patch('/timesheets/:id', auth, (req, res) => {
+  const existing = db.prepare('SELECT * FROM timesheets WHERE id = ?').get(req.params.id);
+  if (!existing) return res.status(404).json({ error: 'Timesheet not found' });
+
+  const { status, daily_hours, notes, reviewed_note } = req.body;
+  if (status && !TIMESHEET_STATUSES.includes(status)) return res.status(400).json({ error: 'Invalid status' });
+  if (status === 'invoiced') return res.status(400).json({ error: '"invoiced" is set automatically when generating invoices' });
+
+  const hours = daily_hours ? sumDailyHours(daily_hours) : existing.hours;
+  const isReview = status === 'approved' || status === 'rejected';
+  db.prepare(
+    `UPDATE timesheets SET
+       status = COALESCE(?, status),
+       daily_hours = ?, hours = ?, notes = COALESCE(?, notes),
+       reviewed_note = COALESCE(?, reviewed_note),
+       reviewed_at = CASE WHEN ? THEN datetime('now') ELSE reviewed_at END
+     WHERE id = ?`
+  ).run(
+    status || null, JSON.stringify(daily_hours || safeParse(existing.daily_hours) || {}), hours,
+    notes ?? null, reviewed_note ?? null, isReview ? 1 : 0, req.params.id
+  );
+  res.json(withAmounts(db.prepare(`${timesheetsWithMeta} WHERE t.id = ?`).get(req.params.id)));
+});
+
+router.delete('/timesheets/:id', auth, (req, res) => {
+  const result = db.prepare('DELETE FROM timesheets WHERE id = ?').run(req.params.id);
+  if (result.changes === 0) return res.status(404).json({ error: 'Timesheet not found' });
+  res.json({ message: 'Timesheet deleted' });
+});
+
+// Get-or-create the no-login link a hired candidate uses to submit their hours.
+router.get('/applicants/:id/timesheet-link', auth, (req, res) => {
+  const app = db.prepare('SELECT id, timesheet_token FROM applications WHERE id = ?').get(req.params.id);
+  if (!app) return res.status(404).json({ error: 'Applicant not found' });
+
+  let token = app.timesheet_token;
+  if (!token) {
+    token = crypto.randomBytes(20).toString('hex');
+    db.prepare('UPDATE applications SET timesheet_token = ? WHERE id = ?').run(token, app.id);
+  }
+  const origin = req.headers.origin || `${req.protocol}://${req.get('host')}`;
+  res.json({ token, url: `${origin}/timesheet/${token}` });
+});
+
+// Payroll-ready CSV export (generic format accepted by ADP/Gusto/Paychex-style imports).
+router.get('/timesheets/payroll-export', auth, (req, res) => {
+  const status = TIMESHEET_STATUSES.includes(req.query.status) ? req.query.status : 'approved';
+  const rows = db.prepare(`${timesheetsWithMeta} WHERE t.status = ? ORDER BY t.week_start DESC`).all(status).map(withAmounts);
+  const header = ['Employee Name', 'Employee Email', 'Week Starting', 'Job', 'Client', 'Hours', 'Pay Rate', 'Gross Pay', 'Status'];
+  const lines = [header.join(',')];
+  for (const t of rows) {
+    lines.push([
+      t.candidate_name, t.candidate_email || '', t.week_start, t.job_title, t.company || '',
+      t.hours, t.rate ?? '', t.pay_amount ?? '', t.status,
+    ].map(csvEscape).join(','));
+  }
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', `attachment; filename="payroll-${status}.csv"`);
+  res.send(lines.join('\n'));
+});
+
+// Batch-generate one draft invoice per employer from approved, not-yet-invoiced
+// timesheets — hours × job.bill_rate, the same margin math already on the Jobs page.
+router.post('/timesheets/generate-invoices', auth, (req, res) => {
+  const { timesheet_ids } = req.body || {};
+  let sql = `${timesheetsWithMeta} WHERE t.status = 'approved'`;
+  const args = [];
+  if (Array.isArray(timesheet_ids) && timesheet_ids.length) {
+    sql += ` AND t.id IN (${timesheet_ids.map(() => '?').join(',')})`;
+    args.push(...timesheet_ids);
+  }
+  const eligible = db.prepare(sql).all(...args).map(withAmounts);
+
+  const billable = eligible.filter((t) => t.employer_id && t.bill_amount != null);
+  const skipped = eligible.length - billable.length;
+  if (billable.length === 0) {
+    return res.status(400).json({ error: 'No approved timesheets with a billable employer + bill rate to invoice.', skipped });
+  }
+
+  const byEmployer = new Map();
+  for (const t of billable) {
+    if (!byEmployer.has(t.employer_id)) byEmployer.set(t.employer_id, { company: t.company, total: 0, timesheetIds: [] });
+    const bucket = byEmployer.get(t.employer_id);
+    bucket.total += t.bill_amount;
+    bucket.timesheetIds.push(t.id);
+  }
+
+  const today = new Date().toISOString().slice(0, 10);
+  const markInvoiced = db.prepare("UPDATE timesheets SET status = 'invoiced', invoice_id = ? WHERE id = ?");
+  const createAll = db.transaction(() => {
+    const created = [];
+    for (const [employerId, bucket] of byEmployer) {
+      const amount = Math.round(bucket.total * 100) / 100;
+      const invoiceId = createInvoiceTx(employerId, null, amount, 'draft', today, null);
+      bucket.timesheetIds.forEach((tid) => markInvoiced.run(invoiceId, tid));
+      created.push({ invoice_id: invoiceId, employer: bucket.company, amount, timesheet_count: bucket.timesheetIds.length });
+    }
+    return created;
+  });
+
+  res.json({ invoices: createAll(), skipped });
+});
+
 function safeParse(s) {
   try { return JSON.parse(s); } catch { return null; }
 }
