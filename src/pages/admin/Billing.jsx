@@ -101,14 +101,14 @@ export default function Billing() {
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex gap-1 rounded-xl bg-white/[0.04] p-1 ring-1 ring-white/10">
+        <div className="flex gap-1 rounded-xl bg-zinc-950/[0.04] dark:bg-white/[0.04] p-1 ring-1 ring-zinc-950/10 dark:ring-white/10">
           {['all', ...STATUSES].map((s) => (
             <button
               key={s}
               onClick={() => setFilter(s)}
-              className={`rounded-lg px-3.5 py-1.5 text-xs font-medium capitalize transition ${filter === s ? 'bg-white/10 text-white' : 'text-zinc-400 hover:text-white'}`}
+              className={`rounded-lg px-3.5 py-1.5 text-xs font-medium capitalize transition ${filter === s ? 'bg-zinc-950/10 dark:bg-white/10 text-zinc-900 dark:text-white' : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'}`}
             >
-              {s} {s !== 'all' && <span className="text-zinc-600">({invoices.filter((i) => i.status === s).length})</span>}
+              {s} {s !== 'all' && <span className="text-zinc-400 dark:text-zinc-600">({invoices.filter((i) => i.status === s).length})</span>}
             </button>
           ))}
         </div>
@@ -129,10 +129,10 @@ export default function Billing() {
             { label: 'Invoice' }, { label: 'Company' }, { label: 'Amount', align: 'right' }, { label: 'Status' }, { label: 'Issued' }, { label: 'Due' }, { label: '', align: 'right' },
           ]}>
             {shown.map((v) => (
-              <tr key={v.id} className="group transition hover:bg-white/[0.03]">
-                <td className="px-5 py-3.5 font-medium text-white">{v.number}</td>
-                <td className="px-5 py-3.5 text-zinc-300">{v.company || '—'}</td>
-                <td className="px-5 py-3.5 text-right tabular-nums text-white">{money(v.amount)}</td>
+              <tr key={v.id} className="group transition hover:bg-zinc-950/[0.03] dark:hover:bg-white/[0.03]">
+                <td className="px-5 py-3.5 font-medium text-zinc-900 dark:text-white">{v.number}</td>
+                <td className="px-5 py-3.5 text-zinc-700 dark:text-zinc-300">{v.company || '—'}</td>
+                <td className="px-5 py-3.5 text-right tabular-nums text-zinc-900 dark:text-white">{money(v.amount)}</td>
                 <td className="px-5 py-3.5"><StatusBadge status={v.status} /></td>
                 <td className="px-5 py-3.5 text-zinc-500">{v.issued_at || '—'}</td>
                 <td className="px-5 py-3.5 text-zinc-500">{v.due_at || '—'}</td>

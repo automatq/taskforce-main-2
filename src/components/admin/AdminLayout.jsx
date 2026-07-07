@@ -60,22 +60,22 @@ export default function AdminLayout() {
   return (
     <ToastProvider>
     <ConfirmProvider>
-    <div className="admin-scope min-h-screen bg-zinc-950 font-geist text-zinc-200 antialiased">
+    <div className="admin-scope min-h-screen bg-zinc-50 font-geist text-zinc-700 antialiased dark:bg-zinc-950 dark:text-zinc-200">
       {/* Ambient accent glows */}
       <div className="pointer-events-none fixed inset-0 overflow-hidden">
-        <div className="absolute -top-40 left-1/4 h-[420px] w-[620px] rounded-full bg-sky-500/10 blur-[120px]" />
-        <div className="absolute top-1/3 -right-40 h-[380px] w-[520px] rounded-full bg-emerald-500/8 blur-[120px]" />
+        <div className="absolute -top-40 left-1/4 h-[420px] w-[620px] rounded-full bg-sky-500/[0.06] blur-[120px] dark:bg-sky-500/10" />
+        <div className="absolute top-1/3 -right-40 h-[380px] w-[520px] rounded-full bg-emerald-500/[0.05] blur-[120px] dark:bg-emerald-500/8" />
       </div>
 
       <div className="relative flex">
         {/* Sidebar */}
-        <aside className="fixed inset-y-0 left-0 z-30 flex w-64 flex-col border-r border-white/10 bg-zinc-950/70 backdrop-blur-xl">
+        <aside className="fixed inset-y-0 left-0 z-30 flex w-64 flex-col border-r border-zinc-200 bg-white/70 backdrop-blur-xl dark:border-white/10 dark:bg-zinc-950/70">
           <div className="flex items-center gap-3 px-6 py-5">
             <span className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-sky-400 to-emerald-400 text-zinc-950 shadow-[0_6px_24px_-6px_rgba(14,165,233,0.7)]">
               <Icon name="solar:bolt-bold" className="text-lg" />
             </span>
             <div className="leading-tight">
-              <div className="text-sm font-semibold text-white">Staffing Co.</div>
+              <div className="text-sm font-semibold text-zinc-900 dark:text-white">Staffing Co.</div>
               <div className="text-[11px] text-zinc-500">Staffing OS</div>
             </div>
           </div>
@@ -88,8 +88,8 @@ export default function AdminLayout() {
                 className={({ isActive }) =>
                   `flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all ${
                     isActive
-                      ? 'bg-white/10 text-white ring-1 ring-white/10'
-                      : 'text-zinc-400 hover:bg-white/5 hover:text-zinc-100'
+                      ? 'bg-zinc-950/[0.06] text-zinc-900 ring-1 ring-zinc-950/10 dark:bg-white/10 dark:text-white dark:ring-white/10'
+                      : 'text-zinc-500 hover:bg-zinc-950/5 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-white/5 dark:hover:text-zinc-100'
                   }`
                 }
               >
@@ -102,19 +102,19 @@ export default function AdminLayout() {
 
         {/* Main column */}
         <div className="ml-64 flex min-h-screen w-full flex-col">
-          <header className="sticky top-0 z-20 flex items-center justify-between border-b border-white/10 bg-zinc-950/60 px-8 py-4 backdrop-blur-xl">
+          <header className="sticky top-0 z-20 flex items-center justify-between border-b border-zinc-200 bg-white/60 px-8 py-4 backdrop-blur-xl dark:border-white/10 dark:bg-zinc-950/60">
             <div>
-              <h1 className="text-xl font-semibold text-white">{pageTitle}</h1>
+              <h1 className="text-xl font-semibold text-zinc-900 dark:text-white">{pageTitle}</h1>
               <p className="text-xs text-zinc-500">Staffing Co. · Your City, ST</p>
             </div>
             <div className="flex items-center gap-3">
               <button
                 onClick={() => setSearchOpen(true)}
-                className="hidden items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3.5 py-2 text-sm text-zinc-500 transition hover:bg-white/[0.07] hover:text-zinc-300 md:flex"
+                className="hidden items-center gap-2 rounded-full border border-zinc-950/10 bg-zinc-950/[0.04] px-3.5 py-2 text-sm text-zinc-500 transition hover:bg-zinc-950/[0.07] hover:text-zinc-700 dark:border-white/10 dark:bg-white/[0.04] dark:hover:bg-white/[0.07] dark:hover:text-zinc-300 md:flex"
               >
                 <Icon name="solar:magnifer-linear" className="text-base" />
                 <span className="w-32 text-left">Search…</span>
-                <kbd className="rounded bg-white/5 px-1.5 py-0.5 text-[10px] ring-1 ring-white/10">⌘K</kbd>
+                <kbd className="rounded bg-zinc-950/5 px-1.5 py-0.5 text-[10px] ring-1 ring-zinc-950/10 dark:bg-white/5 dark:ring-white/10">⌘K</kbd>
               </button>
               <UserMenu />
             </div>

@@ -56,17 +56,17 @@ export default function Documents() {
             { label: 'Document' }, { label: 'Candidate' }, { label: 'Role' }, { label: 'Company' }, { label: 'Uploaded' }, { label: '', align: 'right' },
           ]}>
             {shown.map((d) => (
-              <tr key={d.application_id} className="group transition hover:bg-white/[0.03]">
+              <tr key={d.application_id} className="group transition hover:bg-zinc-950/[0.03] dark:hover:bg-white/[0.03]">
                 <td className="px-5 py-3.5">
                   <div className="flex items-center gap-3">
-                    <span className="grid h-9 w-9 place-items-center rounded-lg bg-rose-500/10 text-rose-300 ring-1 ring-rose-400/20">
+                    <span className="grid h-9 w-9 place-items-center rounded-lg bg-rose-500/10 text-rose-600 dark:text-rose-300 ring-1 ring-rose-400/20">
                       <Icon name="solar:file-text-bold" className="text-base" />
                     </span>
-                    <span className="font-medium text-white">Résumé.pdf</span>
+                    <span className="font-medium text-zinc-900 dark:text-white">Résumé.pdf</span>
                   </div>
                 </td>
-                <td className="px-5 py-3.5 text-zinc-300">{d.applicant_name}</td>
-                <td className="px-5 py-3.5 text-zinc-400">{d.job_title}</td>
+                <td className="px-5 py-3.5 text-zinc-700 dark:text-zinc-300">{d.applicant_name}</td>
+                <td className="px-5 py-3.5 text-zinc-600 dark:text-zinc-400">{d.job_title}</td>
                 <td className="px-5 py-3.5 text-zinc-500">{d.company || '—'}</td>
                 <td className="px-5 py-3.5 text-zinc-500">{relativeDate(d.created_at)}</td>
                 <td className="px-5 py-3.5">

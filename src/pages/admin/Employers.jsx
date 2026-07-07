@@ -89,11 +89,11 @@ export default function Employers() {
             { label: 'Company' }, { label: 'Contact' }, { label: 'Email' }, { label: 'Open Roles' }, { label: 'Plan' }, { label: 'Since' }, { label: '', align: 'right' },
           ]}>
             {shown.map((e) => (
-              <tr key={e.id} className="group cursor-pointer transition hover:bg-white/[0.03]" onClick={() => setProfile(e)}>
-                <td className="px-5 py-3.5 font-medium text-white">{e.name}</td>
-                <td className="px-5 py-3.5 text-zinc-300">{e.contact_name || '—'}</td>
+              <tr key={e.id} className="group cursor-pointer transition hover:bg-zinc-950/[0.03] dark:hover:bg-white/[0.03]" onClick={() => setProfile(e)}>
+                <td className="px-5 py-3.5 font-medium text-zinc-900 dark:text-white">{e.name}</td>
+                <td className="px-5 py-3.5 text-zinc-700 dark:text-zinc-300">{e.contact_name || '—'}</td>
                 <td className="px-5 py-3.5 text-zinc-500">{e.contact_email || '—'}</td>
-                <td className="px-5 py-3.5"><span className="text-zinc-200">{e.open_roles}</span> <span className="text-xs text-zinc-600">of {e.total_jobs}</span></td>
+                <td className="px-5 py-3.5"><span className="text-zinc-800 dark:text-zinc-200">{e.open_roles}</span> <span className="text-xs text-zinc-400 dark:text-zinc-600">of {e.total_jobs}</span></td>
                 <td className="px-5 py-3.5"><StatusBadge status={e.plan} /></td>
                 <td className="px-5 py-3.5 text-zinc-500">{e.since || '—'}</td>
                 <td className="px-5 py-3.5" onClick={(ev) => ev.stopPropagation()}>
@@ -113,11 +113,11 @@ export default function Employers() {
         {profile && (
           <div className="space-y-6">
             <div className="flex items-center gap-4">
-              <span className="grid h-14 w-14 place-items-center rounded-2xl bg-white/5 text-zinc-300 ring-1 ring-white/10">
+              <span className="grid h-14 w-14 place-items-center rounded-2xl bg-zinc-950/5 text-zinc-700 ring-1 ring-zinc-950/10 dark:bg-white/5 dark:text-zinc-300 dark:ring-white/10">
                 <Icon name="solar:buildings-2-bold" className="text-2xl" />
               </span>
               <div className="flex-1">
-                <h3 className="text-lg font-semibold text-white">{profile.name}</h3>
+                <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">{profile.name}</h3>
                 <div className="text-sm text-zinc-500">{profile.contact_name || '—'}</div>
               </div>
               <StatusBadge status={profile.plan} />
@@ -130,30 +130,30 @@ export default function Employers() {
             </div>
 
             <div className="grid grid-cols-2 gap-3 text-sm">
-              <InfoRow icon="solar:letter-linear" label="Email" value={profile.contact_email ? <a href={`mailto:${profile.contact_email}`} className="text-sky-300 hover:underline">{profile.contact_email}</a> : '—'} />
+              <InfoRow icon="solar:letter-linear" label="Email" value={profile.contact_email ? <a href={`mailto:${profile.contact_email}`} className="text-sky-600 hover:underline dark:text-sky-300">{profile.contact_email}</a> : '—'} />
               <InfoRow icon="solar:phone-linear" label="Phone" value={profile.phone || '—'} />
               <InfoRow icon="solar:calendar-linear" label="Client Since" value={profile.since || '—'} />
               <InfoRow icon="solar:star-linear" label="Plan" value={profile.plan} />
             </div>
 
             {profile.notes && (
-              <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3 text-sm text-zinc-300">{profile.notes}</div>
+              <div className="rounded-xl border border-zinc-950/10 bg-zinc-950/[0.03] p-3 text-sm text-zinc-700 dark:border-white/10 dark:bg-white/[0.03] dark:text-zinc-300">{profile.notes}</div>
             )}
 
-            <Section title="Jobs" action={empJobs.length > 0 && <button onClick={() => navigate(`/admin/jobs?q=${encodeURIComponent(profile.name)}`)} className="text-xs text-sky-300 hover:text-sky-200">View →</button>}>
+            <Section title="Jobs" action={empJobs.length > 0 && <button onClick={() => navigate(`/admin/jobs?q=${encodeURIComponent(profile.name)}`)} className="text-xs text-sky-600 hover:text-sky-700 dark:text-sky-300 dark:hover:text-sky-200">View →</button>}>
               {empJobs.length === 0 ? <Empty text="No jobs yet" /> : empJobs.map((j) => (
                 <div key={j.id} className="flex items-center justify-between py-2">
-                  <div><div className="text-sm text-white">{j.title}</div><div className="text-xs text-zinc-500">{j.location} · {j.applicant_count} applicants</div></div>
+                  <div><div className="text-sm text-zinc-900 dark:text-white">{j.title}</div><div className="text-xs text-zinc-500">{j.location} · {j.applicant_count} applicants</div></div>
                   <StatusBadge status={j.status} />
                 </div>
               ))}
             </Section>
 
-            <Section title="Invoices" action={<button onClick={() => navigate('/admin/billing')} className="text-xs text-sky-300 hover:text-sky-200">Billing →</button>}>
+            <Section title="Invoices" action={<button onClick={() => navigate('/admin/billing')} className="text-xs text-sky-600 hover:text-sky-700 dark:text-sky-300 dark:hover:text-sky-200">Billing →</button>}>
               {empInvoices.length === 0 ? <Empty text="No invoices yet" /> : empInvoices.map((v) => (
                 <div key={v.id} className="flex items-center justify-between py-2">
-                  <div><div className="text-sm text-white">{v.number}</div><div className="text-xs text-zinc-500">{v.issued_at || 'draft'}</div></div>
-                  <div className="flex items-center gap-3"><span className="text-sm tabular-nums text-zinc-200">{money(v.amount)}</span><StatusBadge status={v.status} /></div>
+                  <div><div className="text-sm text-zinc-900 dark:text-white">{v.number}</div><div className="text-xs text-zinc-500">{v.issued_at || 'draft'}</div></div>
+                  <div className="flex items-center gap-3"><span className="text-sm tabular-nums text-zinc-800 dark:text-zinc-200">{money(v.amount)}</span><StatusBadge status={v.status} /></div>
                 </div>
               ))}
             </Section>
@@ -192,8 +192,8 @@ export default function Employers() {
 
 function MiniStat({ label, value }) {
   return (
-    <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3 text-center">
-      <div className="text-lg font-semibold text-white">{value}</div>
+    <div className="rounded-xl border border-zinc-950/10 bg-zinc-950/[0.03] p-3 text-center dark:border-white/10 dark:bg-white/[0.03]">
+      <div className="text-lg font-semibold text-zinc-900 dark:text-white">{value}</div>
       <div className="text-[11px] uppercase tracking-wide text-zinc-500">{label}</div>
     </div>
   );
@@ -205,16 +205,16 @@ function Section({ title, action, children }) {
         <h4 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">{title}</h4>
         {action}
       </div>
-      <div className="divide-y divide-white/[0.06] rounded-xl border border-white/10 bg-white/[0.02] px-3">{children}</div>
+      <div className="divide-y divide-zinc-950/[0.06] rounded-xl border border-zinc-950/10 bg-zinc-950/[0.02] px-3 dark:divide-white/[0.06] dark:border-white/10 dark:bg-white/[0.02]">{children}</div>
     </div>
   );
 }
-function Empty({ text }) { return <div className="py-3 text-center text-xs text-zinc-600">{text}</div>; }
+function Empty({ text }) { return <div className="py-3 text-center text-xs text-zinc-400 dark:text-zinc-600">{text}</div>; }
 function InfoRow({ icon, label, value }) {
   return (
     <div>
       <div className="mb-1 flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-zinc-500"><Icon name={icon} className="text-xs" /> {label}</div>
-      <div className="truncate text-zinc-200">{value}</div>
+      <div className="truncate text-zinc-800 dark:text-zinc-200">{value}</div>
     </div>
   );
 }

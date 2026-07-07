@@ -44,8 +44,8 @@ export default function GlobalSearch({ open, onClose }) {
   return (
     <div className="fixed inset-0 z-[75] flex items-start justify-center p-4 pt-[12vh]">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-xl overflow-hidden rounded-2xl border border-white/10 bg-zinc-950/95 backdrop-blur-2xl shadow-[0_24px_80px_rgba(0,0,0,0.7)]">
-        <div className="flex items-center gap-3 border-b border-white/10 px-4 py-3">
+      <div className="relative w-full max-w-xl overflow-hidden rounded-2xl border border-zinc-200 bg-white/95 backdrop-blur-2xl shadow-[0_24px_80px_rgba(0,0,0,0.15)] dark:border-white/10 dark:bg-zinc-950/95 dark:shadow-[0_24px_80px_rgba(0,0,0,0.7)]">
+        <div className="flex items-center gap-3 border-b border-zinc-200 px-4 py-3 dark:border-white/10">
           <Icon name="solar:magnifer-linear" className="text-lg text-zinc-500" />
           <input
             ref={inputRef}
@@ -53,25 +53,25 @@ export default function GlobalSearch({ open, onClose }) {
             onChange={(e) => setQ(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter' && results[0]) go(results[0].to); }}
             placeholder="Search candidates, jobs, employers…"
-            className="flex-1 bg-transparent text-white placeholder:text-zinc-600 outline-none"
+            className="flex-1 bg-transparent text-zinc-900 placeholder:text-zinc-400 outline-none dark:text-white dark:placeholder:text-zinc-600"
           />
-          <kbd className="rounded bg-white/5 px-1.5 py-0.5 text-[10px] text-zinc-500 ring-1 ring-white/10">ESC</kbd>
+          <kbd className="rounded bg-zinc-950/5 px-1.5 py-0.5 text-[10px] text-zinc-500 ring-1 ring-zinc-950/10 dark:bg-white/5 dark:ring-white/10">ESC</kbd>
         </div>
         <div className="max-h-80 overflow-y-auto p-2">
           {!q.trim() ? (
-            <p className="px-3 py-8 text-center text-sm text-zinc-600">Type to search across your workspace…</p>
+            <p className="px-3 py-8 text-center text-sm text-zinc-400 dark:text-zinc-600">Type to search across your workspace…</p>
           ) : results.length === 0 ? (
-            <p className="px-3 py-8 text-center text-sm text-zinc-600">No matches for “{q}”</p>
+            <p className="px-3 py-8 text-center text-sm text-zinc-400 dark:text-zinc-600">No matches for “{q}”</p>
           ) : (
             results.map((r, i) => (
-              <button key={i} onClick={() => go(r.to)} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition hover:bg-white/5">
-                <span className="grid h-8 w-8 place-items-center rounded-lg bg-white/5 text-zinc-400 ring-1 ring-white/10"><Icon name={r.icon} className="text-base" /></span>
+              <button key={i} onClick={() => go(r.to)} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition hover:bg-zinc-950/5 dark:hover:bg-white/5">
+                <span className="grid h-8 w-8 place-items-center rounded-lg bg-zinc-950/5 text-zinc-500 ring-1 ring-zinc-950/10 dark:bg-white/5 dark:text-zinc-400 dark:ring-white/10"><Icon name={r.icon} className="text-base" /></span>
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-medium text-white">{r.label}</span>
+                  <span className="block truncate text-sm font-medium text-zinc-900 dark:text-white">{r.label}</span>
                   <span className="block truncate text-xs text-zinc-500">{r.sub}</span>
                 </span>
                 {r.score != null && <ScoreChip score={r.score} />}
-                <span className="text-[10px] uppercase tracking-wide text-zinc-600">{r.type}</span>
+                <span className="text-[10px] uppercase tracking-wide text-zinc-400 dark:text-zinc-600">{r.type}</span>
               </button>
             ))
           )}

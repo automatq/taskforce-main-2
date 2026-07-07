@@ -82,14 +82,14 @@ export default function Jobs() {
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex gap-1 rounded-xl bg-white/[0.04] p-1 ring-1 ring-white/10">
+        <div className="flex gap-1 rounded-xl bg-zinc-950/[0.04] dark:bg-white/[0.04] p-1 ring-1 ring-zinc-950/10 dark:ring-white/10">
           {['all', ...STATUSES].map((s) => (
             <button
               key={s}
               onClick={() => setFilter(s)}
-              className={`rounded-lg px-3.5 py-1.5 text-xs font-medium capitalize transition ${filter === s ? 'bg-white/10 text-white' : 'text-zinc-400 hover:text-white'}`}
+              className={`rounded-lg px-3.5 py-1.5 text-xs font-medium capitalize transition ${filter === s ? 'bg-zinc-950/10 dark:bg-white/10 text-zinc-900 dark:text-white' : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'}`}
             >
-              {s} {s !== 'all' && <span className="text-zinc-600">({jobs.filter((j) => j.status === s).length})</span>}
+              {s} {s !== 'all' && <span className="text-zinc-400 dark:text-zinc-600">({jobs.filter((j) => j.status === s).length})</span>}
             </button>
           ))}
         </div>
@@ -110,14 +110,14 @@ export default function Jobs() {
             { label: 'Rate' }, { label: 'Applicants' }, { label: 'Status' }, { label: 'Posted' }, { label: '', align: 'right' },
           ]}>
             {shown.map((j) => (
-              <tr key={j.id} className="group transition hover:bg-white/[0.03]">
-                <td className="px-5 py-3.5 font-medium text-white">{j.title}</td>
-                <td className="px-5 py-3.5 text-zinc-400">{j.company || '—'}</td>
-                <td className="px-5 py-3.5 text-zinc-400">{j.location}</td>
-                <td className="px-5 py-3.5 text-zinc-400">{j.type}</td>
-                <td className="px-5 py-3.5 text-emerald-300">{j.rate != null ? `$${j.rate}/hr` : '—'}</td>
+              <tr key={j.id} className="group transition hover:bg-zinc-950/[0.03] dark:hover:bg-white/[0.03]">
+                <td className="px-5 py-3.5 font-medium text-zinc-900 dark:text-white">{j.title}</td>
+                <td className="px-5 py-3.5 text-zinc-600 dark:text-zinc-400">{j.company || '—'}</td>
+                <td className="px-5 py-3.5 text-zinc-600 dark:text-zinc-400">{j.location}</td>
+                <td className="px-5 py-3.5 text-zinc-600 dark:text-zinc-400">{j.type}</td>
+                <td className="px-5 py-3.5 text-emerald-600 dark:text-emerald-300">{j.rate != null ? `$${j.rate}/hr` : '—'}</td>
                 <td className="px-5 py-3.5">
-                  <button onClick={() => navigate(`/admin/applicants?q=${encodeURIComponent(j.title)}`)} className="text-zinc-300 underline-offset-2 hover:text-sky-300 hover:underline">
+                  <button onClick={() => navigate(`/admin/applicants?q=${encodeURIComponent(j.title)}`)} className="text-zinc-700 dark:text-zinc-300 underline-offset-2 hover:text-sky-600 dark:hover:text-sky-300 hover:underline">
                     {j.applicant_count}
                   </button>
                 </td>
@@ -155,7 +155,7 @@ export default function Jobs() {
             <Field label="Status"><Select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>{STATUSES.map((s) => <option key={s} value={s} className="capitalize">{s}</option>)}</Select></Field>
           </div>
           {form.rate && form.bill_rate && Number(form.bill_rate) > 0 && (
-            <div className="flex items-center gap-2 rounded-xl bg-emerald-500/10 px-3.5 py-2.5 text-xs text-emerald-300 ring-1 ring-emerald-400/20">
+            <div className="flex items-center gap-2 rounded-xl bg-emerald-500/10 px-3.5 py-2.5 text-xs text-emerald-600 dark:text-emerald-300 ring-1 ring-emerald-400/20">
               <Icon name="solar:money-bag-bold" className="text-sm" />
               Gross margin: {Math.round(((form.bill_rate - form.rate) / form.bill_rate) * 100)}% · ${(form.bill_rate - form.rate).toFixed(2)}/hr spread
             </div>

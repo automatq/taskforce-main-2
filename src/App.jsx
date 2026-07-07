@@ -20,6 +20,7 @@ import Documents from './pages/admin/Documents';
 import Settings from './pages/admin/Settings';
 import Team from './pages/admin/Team';
 import { AuthProvider } from './hooks/useAuth';
+import { ThemeProvider } from './hooks/useTheme';
 
 // Public marketing/job-board shell — light theme with Navbar/Footer chrome.
 function PublicLayout() {
@@ -43,6 +44,7 @@ function PublicLayout() {
 
 function App() {
   return (
+    <ThemeProvider>
     <AuthProvider>
       <Routes>
         {/* Admin login (dark, standalone — matches /admin exactly) */}
@@ -71,6 +73,7 @@ function App() {
         </Route>
       </Routes>
     </AuthProvider>
+    </ThemeProvider>
   );
 }
 

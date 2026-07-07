@@ -42,7 +42,7 @@ export default function Agents() {
           <Icon name="solar:cpu-bolt-bold" className="text-xl" />
         </span>
         <div>
-          <h2 className="text-sm font-semibold text-white">Your AI Workforce</h2>
+          <h2 className="text-sm font-semibold text-zinc-900 dark:text-white">Your AI Workforce</h2>
           <p className="text-xs text-zinc-500">Five agents that handle screening, outreach, intake, and onboarding — so your team places more, faster.</p>
         </div>
       </GlassCard>
@@ -51,22 +51,22 @@ export default function Agents() {
         {agents.map((a) => (
           <GlassCard key={a.key} className="flex flex-col p-5">
             <div className="flex items-start justify-between">
-              <span className="grid h-11 w-11 place-items-center rounded-xl bg-white/5 text-sky-300 ring-1 ring-white/10">
+              <span className="grid h-11 w-11 place-items-center rounded-xl bg-zinc-950/5 dark:bg-white/5 text-sky-600 dark:text-sky-300 ring-1 ring-zinc-950/10 dark:ring-white/10">
                 <Icon name={a.icon} className="text-xl" />
               </span>
               <StatusBadge status={a.status} />
             </div>
-            <h3 className="mt-4 text-base font-semibold text-white">{a.name}</h3>
+            <h3 className="mt-4 text-base font-semibold text-zinc-900 dark:text-white">{a.name}</h3>
             <p className="mt-1 flex-1 text-sm text-zinc-500">{a.desc}</p>
-            <div className="mt-4 flex items-center justify-between border-t border-white/[0.06] pt-3">
-              <span className="text-xs text-zinc-400">{a.metric}</span>
+            <div className="mt-4 flex items-center justify-between border-t border-zinc-950/[0.06] dark:border-white/[0.06] pt-3">
+              <span className="text-xs text-zinc-600 dark:text-zinc-400">{a.metric}</span>
               {a.action === 'draft' && a.status === 'active' && (
                 <Button variant="ghost" icon="solar:pen-new-square-linear" className="!px-3 !py-1.5 text-xs" onClick={() => { setFollowup(true); setDraft(''); setPick(''); }}>
                   Draft
                 </Button>
               )}
               {a.status === 'connect' && (
-                <span className="text-[11px] text-sky-300">Configure in Settings →</span>
+                <span className="text-[11px] text-sky-600 dark:text-sky-300">Configure in Settings →</span>
               )}
             </div>
           </GlassCard>
@@ -89,14 +89,14 @@ export default function Agents() {
           </Button>
 
           {draft && (
-            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+            <div className="rounded-2xl border border-zinc-950/10 dark:border-white/10 bg-zinc-950/[0.03] dark:bg-white/[0.03] p-4">
               <div className="mb-2 flex items-center justify-between">
-                <span className="text-xs font-medium text-zinc-400">Drafted message</span>
-                <button onClick={copy} className="flex items-center gap-1 text-xs text-sky-300 hover:text-sky-200">
+                <span className="text-xs font-medium text-zinc-600 dark:text-zinc-400">Drafted message</span>
+                <button onClick={copy} className="flex items-center gap-1 text-xs text-sky-600 dark:text-sky-300 hover:text-sky-700 dark:hover:text-sky-200">
                   <Icon name="solar:copy-linear" className="text-xs" /> Copy
                 </button>
               </div>
-              <p className="whitespace-pre-wrap text-sm leading-relaxed text-zinc-200">{draft}</p>
+              <p className="whitespace-pre-wrap text-sm leading-relaxed text-zinc-800 dark:text-zinc-200">{draft}</p>
             </div>
           )}
         </div>

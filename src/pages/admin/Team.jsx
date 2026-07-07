@@ -103,11 +103,11 @@ export default function Team() {
             {members.map((m) => {
               const isSelf = m.id === user?.id;
               return (
-                <tr key={m.id} className="group transition hover:bg-white/[0.03]">
-                  <td className="px-5 py-3.5 font-medium text-white">
+                <tr key={m.id} className="group transition hover:bg-zinc-950/[0.03] dark:hover:bg-white/[0.03]">
+                  <td className="px-5 py-3.5 font-medium text-zinc-900 dark:text-white">
                     {m.name}{isSelf && <span className="ml-2 text-xs font-normal text-zinc-500">(you)</span>}
                   </td>
-                  <td className="px-5 py-3.5 text-zinc-400">{m.email}</td>
+                  <td className="px-5 py-3.5 text-zinc-600 dark:text-zinc-400">{m.email}</td>
                   <td className="px-5 py-3.5"><StatusBadge status={m.role} /></td>
                   <td className="px-5 py-3.5"><StatusBadge status={m.active ? 'active' : 'inactive'} /></td>
                   <td className="px-5 py-3.5 text-zinc-500">{relativeDate(m.last_login_at)}</td>

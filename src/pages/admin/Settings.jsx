@@ -85,7 +85,7 @@ export default function Settings() {
     <div className="max-w-2xl space-y-6">
       <form onSubmit={save} className="space-y-6">
         <GlassCard className="p-6">
-          <h2 className="text-sm font-semibold text-white">Agency Profile</h2>
+          <h2 className="text-sm font-semibold text-zinc-900 dark:text-white">Agency Profile</h2>
           <p className="mt-1 text-xs text-zinc-500">Shown across your console and on outgoing documents.</p>
           <div className="mt-5 space-y-4">
             <Field label="Agency Name"><Input value={data.name} onChange={(e) => setData({ ...data, name: e.target.value })} /></Field>
@@ -99,8 +99,8 @@ export default function Settings() {
 
         <GlassCard className="p-6">
           <div className="flex items-center gap-2">
-            <Icon name="solar:link-circle-bold" className="text-lg text-sky-300" />
-            <h2 className="text-sm font-semibold text-white">Integrations</h2>
+            <Icon name="solar:link-circle-bold" className="text-lg text-sky-600 dark:text-sky-300" />
+            <h2 className="text-sm font-semibold text-zinc-900 dark:text-white">Integrations</h2>
           </div>
           <p className="mt-1 text-xs text-zinc-500">Route placed candidates into your ATS and activate the phone/voice agents.</p>
           <div className="mt-5 space-y-4">
@@ -123,15 +123,15 @@ export default function Settings() {
 
         <div className="flex items-center gap-3">
           <Button type="submit" disabled={saving}>{saving ? 'Saving…' : 'Save Changes'}</Button>
-          {saved && <span className="flex items-center gap-1 text-sm text-emerald-300"><Icon name="solar:check-circle-bold" className="text-base" /> Saved</span>}
+          {saved && <span className="flex items-center gap-1 text-sm text-emerald-600 dark:text-emerald-300"><Icon name="solar:check-circle-bold" className="text-base" /> Saved</span>}
         </div>
       </form>
 
       <GlassCard className="p-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Icon name="solar:magic-stick-3-bold" className={`text-lg ${data.aiScoring ? 'text-emerald-300' : 'text-zinc-500'}`} />
-            <h2 className="text-sm font-semibold text-white">AI Candidate Scoring & Agents</h2>
+            <Icon name="solar:magic-stick-3-bold" className={`text-lg ${data.aiScoring ? 'text-emerald-600 dark:text-emerald-300' : 'text-zinc-500'}`} />
+            <h2 className="text-sm font-semibold text-zinc-900 dark:text-white">AI Candidate Scoring & Agents</h2>
           </div>
           <StatusBadge status={data.aiScoring ? 'active' : 'draft'} />
         </div>
@@ -145,8 +145,8 @@ export default function Settings() {
       <GlassCard className="p-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Icon name="solar:wallet-money-bold" className={`text-lg ${qbo?.connected ? 'text-emerald-300' : 'text-zinc-500'}`} />
-            <h2 className="text-sm font-semibold text-white">QuickBooks Online</h2>
+            <Icon name="solar:wallet-money-bold" className={`text-lg ${qbo?.connected ? 'text-emerald-600 dark:text-emerald-300' : 'text-zinc-500'}`} />
+            <h2 className="text-sm font-semibold text-zinc-900 dark:text-white">QuickBooks Online</h2>
           </div>
           <StatusBadge status={qbo?.connected ? 'active' : qbo?.configured ? 'connect' : 'draft'} />
         </div>
@@ -163,7 +163,7 @@ export default function Settings() {
           ) : qbo?.configured ? (
             <Button icon="solar:link-circle-linear" onClick={connectQbo}>Connect QuickBooks</Button>
           ) : (
-            <div className="flex items-center gap-2 rounded-xl bg-white/[0.03] px-3.5 py-2.5 text-xs text-zinc-500 ring-1 ring-white/10">
+            <div className="flex items-center gap-2 rounded-xl bg-zinc-950/[0.03] dark:bg-white/[0.03] px-3.5 py-2.5 text-xs text-zinc-500 ring-1 ring-zinc-950/10 dark:ring-white/10">
               <Icon name="solar:info-circle-linear" className="text-sm" />
               CSV export is available now; live sync needs an Intuit Developer app.
             </div>
@@ -174,11 +174,11 @@ export default function Settings() {
       <GlassCard className="p-6">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-sm font-semibold text-white">Subscription</h2>
+            <h2 className="text-sm font-semibold text-zinc-900 dark:text-white">Subscription</h2>
             <div className="mt-1 text-xs text-zinc-500">Professional — Full ATS + CRM, AI agents, invoicing</div>
           </div>
           <div className="text-right">
-            <div className="text-2xl font-semibold text-white">$950<span className="text-sm text-zinc-500">/mo</span></div>
+            <div className="text-2xl font-semibold text-zinc-900 dark:text-white">$950<span className="text-sm text-zinc-500">/mo</span></div>
             {data.subscription ? (
               <StatusBadge status={data.subscription.status === 'active' ? 'active' : data.subscription.status} />
             ) : (
@@ -192,19 +192,19 @@ export default function Settings() {
               {data.subscription?.status === 'active' ? 'Manage subscription via Stripe' : 'Subscribe — $950/mo'}
             </Button>
           ) : (
-            <div className="flex items-center gap-2 rounded-xl bg-white/[0.03] px-3.5 py-2.5 text-xs text-zinc-500 ring-1 ring-white/10">
+            <div className="flex items-center gap-2 rounded-xl bg-zinc-950/[0.03] dark:bg-white/[0.03] px-3.5 py-2.5 text-xs text-zinc-500 ring-1 ring-zinc-950/10 dark:ring-white/10">
               <Icon name="solar:info-circle-linear" className="text-sm" />
               Connect Stripe (STRIPE_SECRET_KEY + STRIPE_PRICE_ID + STRIPE_WEBHOOK_SECRET) to take real $950/mo subscriptions.
             </div>
           )}
           {data.stripe && !data.stripeWebhookConfigured && (
-            <p className="mt-2 flex items-start gap-1.5 text-[11px] text-amber-300">
+            <p className="mt-2 flex items-start gap-1.5 text-[11px] text-amber-600 dark:text-amber-300">
               <Icon name="solar:danger-triangle-linear" className="mt-0.5 text-xs" />
               STRIPE_WEBHOOK_SECRET isn't set — checkout will work, but payment can never be confirmed. Add it so subscriptions actually activate.
             </p>
           )}
           {data.stripe && data.stripeWebhookConfigured && !data.subscription && (
-            <p className="mt-2 text-[11px] text-zinc-600">Payment status is confirmed via Stripe webhook, not just the checkout redirect — it can take a few seconds to appear after subscribing.</p>
+            <p className="mt-2 text-[11px] text-zinc-400 dark:text-zinc-600">Payment status is confirmed via Stripe webhook, not just the checkout redirect — it can take a few seconds to appear after subscribing.</p>
           )}
         </div>
       </GlassCard>

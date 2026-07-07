@@ -144,14 +144,14 @@ export default function Timesheets() {
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex gap-1 rounded-xl bg-white/[0.04] p-1 ring-1 ring-white/10">
+        <div className="flex gap-1 rounded-xl bg-zinc-950/[0.04] dark:bg-white/[0.04] p-1 ring-1 ring-zinc-950/10 dark:ring-white/10">
           {['all', ...STATUSES].map((s) => (
             <button
               key={s}
               onClick={() => setFilter(s)}
-              className={`rounded-lg px-3.5 py-1.5 text-xs font-medium capitalize transition ${filter === s ? 'bg-white/10 text-white' : 'text-zinc-400 hover:text-white'}`}
+              className={`rounded-lg px-3.5 py-1.5 text-xs font-medium capitalize transition ${filter === s ? 'bg-zinc-950/10 dark:bg-white/10 text-zinc-900 dark:text-white' : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'}`}
             >
-              {s} {s !== 'all' && <span className="text-zinc-600">({timesheets.filter((t) => t.status === s).length})</span>}
+              {s} {s !== 'all' && <span className="text-zinc-400 dark:text-zinc-600">({timesheets.filter((t) => t.status === s).length})</span>}
             </button>
           ))}
         </div>
@@ -174,16 +174,16 @@ export default function Timesheets() {
             { label: 'Pay', align: 'right' }, { label: 'Bill', align: 'right' }, { label: 'Status' }, { label: '', align: 'right' },
           ]}>
             {shown.map((t) => (
-              <tr key={t.id} className="group cursor-pointer transition hover:bg-white/[0.03]" onClick={() => setActive(t)}>
-                <td className="px-5 py-3.5 font-medium text-white">{t.candidate_name}</td>
+              <tr key={t.id} className="group cursor-pointer transition hover:bg-zinc-950/[0.03] dark:hover:bg-white/[0.03]" onClick={() => setActive(t)}>
+                <td className="px-5 py-3.5 font-medium text-zinc-900 dark:text-white">{t.candidate_name}</td>
                 <td className="px-5 py-3.5">
-                  <div className="text-zinc-300">{t.job_title}</div>
+                  <div className="text-zinc-700 dark:text-zinc-300">{t.job_title}</div>
                   <div className="text-xs text-zinc-500">{t.company || '—'}</div>
                 </td>
-                <td className="px-5 py-3.5 text-zinc-400">{t.week_start}</td>
-                <td className="px-5 py-3.5 text-right tabular-nums text-zinc-200">{t.hours}</td>
-                <td className="px-5 py-3.5 text-right tabular-nums text-zinc-400">{t.pay_amount != null ? money(t.pay_amount) : '—'}</td>
-                <td className="px-5 py-3.5 text-right tabular-nums text-emerald-300">{t.bill_amount != null ? money(t.bill_amount) : '—'}</td>
+                <td className="px-5 py-3.5 text-zinc-600 dark:text-zinc-400">{t.week_start}</td>
+                <td className="px-5 py-3.5 text-right tabular-nums text-zinc-800 dark:text-zinc-200">{t.hours}</td>
+                <td className="px-5 py-3.5 text-right tabular-nums text-zinc-600 dark:text-zinc-400">{t.pay_amount != null ? money(t.pay_amount) : '—'}</td>
+                <td className="px-5 py-3.5 text-right tabular-nums text-emerald-600 dark:text-emerald-300">{t.bill_amount != null ? money(t.bill_amount) : '—'}</td>
                 <td className="px-5 py-3.5"><StatusBadge status={t.status} /></td>
                 <td className="px-5 py-3.5" onClick={(e) => e.stopPropagation()}>
                   <div className="flex items-center justify-end gap-1 opacity-0 transition group-hover:opacity-100">
@@ -207,11 +207,11 @@ export default function Timesheets() {
         {active && (
           <div className="space-y-6">
             <div className="flex items-center gap-4">
-              <span className="grid h-14 w-14 place-items-center rounded-2xl bg-white/5 text-lg font-semibold text-white ring-1 ring-white/10">
+              <span className="grid h-14 w-14 place-items-center rounded-2xl bg-zinc-950/5 dark:bg-white/5 text-lg font-semibold text-zinc-900 dark:text-white ring-1 ring-zinc-950/10 dark:ring-white/10">
                 {active.candidate_name.split(' ').map((n) => n[0]).join('').slice(0, 2)}
               </span>
               <div className="flex-1">
-                <h3 className="text-lg font-semibold text-white">{active.candidate_name}</h3>
+                <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">{active.candidate_name}</h3>
                 <div className="text-sm text-zinc-500">{active.job_title} · {active.company || '—'}</div>
               </div>
               <StatusBadge status={active.status} />
@@ -219,30 +219,30 @@ export default function Timesheets() {
 
             <div className="grid grid-cols-7 gap-1.5">
               {DAYS.map((d) => (
-                <div key={d.key} className="rounded-xl border border-white/10 bg-white/[0.03] py-2 text-center">
+                <div key={d.key} className="rounded-xl border border-zinc-950/10 dark:border-white/10 bg-zinc-950/[0.03] dark:bg-white/[0.03] py-2 text-center">
                   <div className="text-[10px] uppercase text-zinc-500">{d.label}</div>
-                  <div className="mt-0.5 text-sm font-medium text-white">{active.daily_hours?.[d.key] || 0}</div>
+                  <div className="mt-0.5 text-sm font-medium text-zinc-900 dark:text-white">{active.daily_hours?.[d.key] || 0}</div>
                 </div>
               ))}
             </div>
 
             <div className="grid grid-cols-3 gap-3">
-              <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3 text-center">
-                <div className="text-lg font-semibold text-white">{active.hours}</div>
+              <div className="rounded-xl border border-zinc-950/10 dark:border-white/10 bg-zinc-950/[0.03] dark:bg-white/[0.03] p-3 text-center">
+                <div className="text-lg font-semibold text-zinc-900 dark:text-white">{active.hours}</div>
                 <div className="text-[11px] uppercase tracking-wide text-zinc-500">Hours</div>
               </div>
-              <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3 text-center">
-                <div className="text-lg font-semibold text-white">{active.pay_amount != null ? money(active.pay_amount) : '—'}</div>
+              <div className="rounded-xl border border-zinc-950/10 dark:border-white/10 bg-zinc-950/[0.03] dark:bg-white/[0.03] p-3 text-center">
+                <div className="text-lg font-semibold text-zinc-900 dark:text-white">{active.pay_amount != null ? money(active.pay_amount) : '—'}</div>
                 <div className="text-[11px] uppercase tracking-wide text-zinc-500">Payroll</div>
               </div>
-              <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3 text-center">
-                <div className="text-lg font-semibold text-emerald-300">{active.bill_amount != null ? money(active.bill_amount) : '—'}</div>
+              <div className="rounded-xl border border-zinc-950/10 dark:border-white/10 bg-zinc-950/[0.03] dark:bg-white/[0.03] p-3 text-center">
+                <div className="text-lg font-semibold text-emerald-600 dark:text-emerald-300">{active.bill_amount != null ? money(active.bill_amount) : '—'}</div>
                 <div className="text-[11px] uppercase tracking-wide text-zinc-500">Client Bill</div>
               </div>
             </div>
 
             {active.notes && (
-              <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3 text-sm text-zinc-300">{active.notes}</div>
+              <div className="rounded-xl border border-zinc-950/10 dark:border-white/10 bg-zinc-950/[0.03] dark:bg-white/[0.03] p-3 text-sm text-zinc-700 dark:text-zinc-300">{active.notes}</div>
             )}
 
             {active.status === 'submitted' && (
@@ -273,7 +273,7 @@ export default function Timesheets() {
             <Input type="date" required value={form.week_start} onChange={(e) => setForm({ ...form, week_start: e.target.value })} />
           </Field>
           <div>
-            <span className="mb-2 block text-xs font-medium text-zinc-400">Hours Worked</span>
+            <span className="mb-2 block text-xs font-medium text-zinc-600 dark:text-zinc-400">Hours Worked</span>
             <div className="grid grid-cols-7 gap-1.5">
               {DAYS.map((d) => (
                 <div key={d.key} className="text-center">
@@ -283,12 +283,12 @@ export default function Timesheets() {
                     value={form.hours[d.key]}
                     onChange={(e) => setForm({ ...form, hours: { ...form.hours, [d.key]: e.target.value } })}
                     placeholder="0"
-                    className="w-full rounded-lg border border-white/10 bg-white/[0.04] px-1.5 py-2 text-center text-sm text-white outline-none focus:border-sky-400/50"
+                    className="w-full rounded-lg border border-zinc-950/10 dark:border-white/10 bg-zinc-950/[0.04] dark:bg-white/[0.04] px-1.5 py-2 text-center text-sm text-zinc-900 dark:text-white outline-none focus:border-sky-400/50"
                   />
                 </div>
               ))}
             </div>
-            <p className="mt-2 text-xs text-zinc-500">Total: <span className="font-medium text-zinc-200">{totalHours(form.hours)} hrs</span></p>
+            <p className="mt-2 text-xs text-zinc-500">Total: <span className="font-medium text-zinc-800 dark:text-zinc-200">{totalHours(form.hours)} hrs</span></p>
           </div>
           <Field label="Notes"><Textarea rows={2} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></Field>
           <div className="flex justify-end gap-2 pt-2">
