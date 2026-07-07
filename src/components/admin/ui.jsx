@@ -73,13 +73,22 @@ export function StatusBadge({ status }) {
   );
 }
 
-export function ScoreChip({ score }) {
+export function ScoreChip({ score, error }) {
+  if (score == null && error) {
+    return (
+      <span title={error} className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold ring-1 ${ACCENTS.rose}`}>
+        <Icon name="solar:danger-triangle-bold" className="text-[11px]" />
+        Failed
+      </span>
+    );
+  }
   if (score == null) return <span className="text-xs text-zinc-600">—</span>;
   const accent = score >= 90 ? 'emerald' : score >= 80 ? 'sky' : score >= 70 ? 'amber' : 'rose';
   return (
     <span className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold tabular-nums ring-1 ${ACCENTS[accent]}`}>
       <Icon name="solar:magic-stick-3-bold" className="text-[11px]" />
       {score}
+      {error && <Icon name="solar:danger-triangle-bold" className="text-[11px] text-rose-300" title={`Last re-score failed: ${error}`} />}
     </span>
   );
 }

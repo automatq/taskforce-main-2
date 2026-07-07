@@ -53,8 +53,11 @@ function extractJson(text) {
   return null;
 }
 
+// Returns { text, failed } — `failed` is true when a résumé file exists but
+// its text could not be extracted (corrupt/unsupported/unreadable file), so
+// callers can tell "no résumé" apart from "résumé present but unreadable".
 async function extractResumeText(filename) {
-  if (!filename) return '';
+  if (!filename) return { text: '', failed: false };
   const filePath = join(resumeDir, filename);
   const ext = extname(filename).toLowerCase();
   try {
@@ -62,20 +65,23 @@ async function extractResumeText(filename) {
       const { default: pdfParse } = await import('pdf-parse/lib/pdf-parse.js');
       const buf = await readFile(filePath);
       const data = await pdfParse(buf);
-      return data.text || '';
+      return { text: data.text || '', failed: false };
     }
     if (ext === '.docx' || ext === '.doc') {
       const { default: mammoth } = await import('mammoth');
       const { value } = await mammoth.extractRawText({ path: filePath });
-      return value || '';
+      return { text: value || '', failed: false };
     }
   } catch (err) {
     console.error('[aiScore] résumé text extraction failed:', err.message);
+    return { text: '', failed: true };
   }
-  return '';
+  return { text: '', failed: false };
 }
 
-// Score a résumé against a job → { score 0-100, reasons[] } or null.
+// Score a résumé against a job.
+// Returns: { score, reasons } on success · { error } if AI is enabled but the
+// call failed (so the failure can be surfaced/retried) · null if AI is off.
 export async function scoreApplication({ job, resumeText, applicantName }) {
   if (!aiScoringEnabled()) return null;
   const system =
@@ -99,15 +105,15 @@ ${resumeText ? resumeText.slice(0, 12000) : '(No résumé text could be extracte
       { maxTokens: 600, json: true }
     );
     const parsed = extractJson(content);
-    if (!parsed) return null;
+    if (!parsed) return { error: 'The AI returned a response that could not be parsed as a score.' };
     let score = Math.round(Number(parsed.score));
-    if (!Number.isFinite(score)) return null;
+    if (!Number.isFinite(score)) return { error: 'The AI returned an invalid score.' };
     score = Math.max(0, Math.min(100, score));
     const reasons = Array.isArray(parsed.reasons) ? parsed.reasons.slice(0, 5).map(String) : [];
     return { score, reasons };
   } catch (err) {
     console.error('[aiScore] scoring request failed:', err.message);
-    return null;
+    return { error: err.message };
   }
 }
 
@@ -129,18 +135,29 @@ Current status: ${applicant.status}${applicant.ai_score != null ? `\nFit score: 
 }
 
 // Load an application's job + résumé, score it, and persist the result.
+// On failure, persists the reason to ai_score_error instead of leaving the
+// applicant silently unscored with no indication anything went wrong.
 export async function scoreApplicationById(db, applicationId) {
   const app = db.prepare('SELECT * FROM applications WHERE id = ?').get(applicationId);
   if (!app) return null;
   const job = db.prepare('SELECT * FROM jobs WHERE id = ?').get(app.job_id);
   if (!job) return null;
 
-  const resumeText = await extractResumeText(app.resume_path);
+  const { text: resumeText, failed: extractionFailed } = await extractResumeText(app.resume_path);
   const result = await scoreApplication({ job, resumeText, applicantName: app.name });
-  if (!result) return null;
+  if (!result) return null; // AI scoring is disabled — not a failure to report.
+
+  if (result.error) {
+    const reason = extractionFailed
+      ? `Could not read the résumé file, and scoring failed: ${result.error}`
+      : result.error;
+    db.prepare("UPDATE applications SET ai_score_error = ?, updated_at = datetime('now') WHERE id = ?")
+      .run(reason.slice(0, 500), applicationId);
+    return { error: reason };
+  }
 
   db.prepare(
-    "UPDATE applications SET ai_score = ?, ai_reasons = ?, updated_at = datetime('now') WHERE id = ?"
+    "UPDATE applications SET ai_score = ?, ai_reasons = ?, ai_score_error = NULL, updated_at = datetime('now') WHERE id = ?"
   ).run(result.score, JSON.stringify(result.reasons), applicationId);
   return result;
 }

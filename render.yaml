@@ -27,6 +27,13 @@ services:
         value: https://api.minimax.io/v1   # MiniMax; or DeepSeek/Groq/OpenRouter/Together base URL
       - key: LLM_MODEL
         value: MiniMax-M2         # set to your chosen model
+      # --- Stripe (optional). ---
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_PRICE_ID
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false               # from Stripe Dashboard → Webhooks → endpoint https://<app>/api/stripe/webhook
       # --- QuickBooks Online (optional). CSV export works without these. ---
       - key: QBO_CLIENT_ID
         sync: false               # Intuit Developer app — enables live invoice sync

@@ -101,6 +101,10 @@ addColumn('applications', 'status', "status TEXT NOT NULL DEFAULT 'new'"); // ne
 addColumn('applications', 'ai_score', 'ai_score INTEGER');
 addColumn('applications', 'ai_reasons', 'ai_reasons TEXT'); // JSON array of strings
 addColumn('applications', 'updated_at', 'updated_at TEXT');
+addColumn('applications', 'ai_score_error', 'ai_score_error TEXT'); // last scoring failure reason, if any
+
+addColumn('invoices', 'qbo_invoice_id', 'qbo_invoice_id TEXT'); // set once pushed to QuickBooks — prevents duplicate sync
+addColumn('invoices', 'qbo_synced_at', 'qbo_synced_at TEXT');
 
 // System-managed integration tokens (QuickBooks, etc.) — kept separate from the
 // user-editable `settings` JSON so saving the profile form can't clobber them.

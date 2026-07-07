@@ -13,14 +13,31 @@ export default function Settings() {
   const [qbo, setQbo] = useState(null);
   const toast = useToast();
 
+  const loadSettings = () => apiFetch('/admin/settings').then((d) => {
+    setData({
+      name: d.name, aiScoring: d.aiScoring, stripe: d.stripe,
+      stripeWebhookConfigured: d.stripeWebhookConfigured,
+      subscription: d.subscription, settings: d.settings || {},
+    });
+  });
+
   useEffect(() => {
-    apiFetch('/admin/settings').then((d) => {
-      setData({ name: d.name, aiScoring: d.aiScoring, stripe: d.stripe, settings: d.settings || {} });
-    }).finally(() => setLoading(false));
+    loadSettings().finally(() => setLoading(false));
     apiFetch('/admin/quickbooks/status').then(setQbo).catch(() => {});
 
     const params = new URLSearchParams(window.location.search);
-    if (params.get('sub') === 'success') toast.success('Subscription active — welcome aboard!');
+    if (params.get('sub') === 'success') {
+      // The redirect confirms the customer's browser came back from Checkout —
+      // it does NOT confirm payment. The real status comes from the Stripe
+      // webhook, which may land a moment after the redirect, so poll briefly.
+      toast.info('Finishing up with Stripe…');
+      let attempts = 0;
+      const poll = setInterval(async () => {
+        attempts += 1;
+        await loadSettings();
+        if (attempts >= 5) clearInterval(poll);
+      }, 2000);
+    }
     const qp = params.get('qbo');
     if (qp === 'connected') toast.success('QuickBooks connected');
     else if (qp === 'denied') toast.error('QuickBooks authorization was denied');
@@ -162,17 +179,32 @@ export default function Settings() {
           </div>
           <div className="text-right">
             <div className="text-2xl font-semibold text-white">$950<span className="text-sm text-zinc-500">/mo</span></div>
-            <div className="text-xs text-emerald-300">{data.stripe ? 'Stripe connected' : 'Active'}</div>
+            {data.subscription ? (
+              <StatusBadge status={data.subscription.status === 'active' ? 'active' : data.subscription.status} />
+            ) : (
+              <div className="text-xs text-zinc-500">{data.stripe ? 'Not subscribed' : 'Not connected'}</div>
+            )}
           </div>
         </div>
         <div className="mt-4">
           {data.stripe ? (
-            <Button icon="solar:card-linear" onClick={subscribe} className="w-full justify-center">Manage subscription via Stripe</Button>
+            <Button icon="solar:card-linear" onClick={subscribe} className="w-full justify-center">
+              {data.subscription?.status === 'active' ? 'Manage subscription via Stripe' : 'Subscribe — $950/mo'}
+            </Button>
           ) : (
             <div className="flex items-center gap-2 rounded-xl bg-white/[0.03] px-3.5 py-2.5 text-xs text-zinc-500 ring-1 ring-white/10">
               <Icon name="solar:info-circle-linear" className="text-sm" />
-              Connect Stripe (STRIPE_SECRET_KEY + STRIPE_PRICE_ID) to take real $950/mo subscriptions.
+              Connect Stripe (STRIPE_SECRET_KEY + STRIPE_PRICE_ID + STRIPE_WEBHOOK_SECRET) to take real $950/mo subscriptions.
             </div>
+          )}
+          {data.stripe && !data.stripeWebhookConfigured && (
+            <p className="mt-2 flex items-start gap-1.5 text-[11px] text-amber-300">
+              <Icon name="solar:danger-triangle-linear" className="mt-0.5 text-xs" />
+              STRIPE_WEBHOOK_SECRET isn't set — checkout will work, but payment can never be confirmed. Add it so subscriptions actually activate.
+            </p>
+          )}
+          {data.stripe && data.stripeWebhookConfigured && !data.subscription && (
+            <p className="mt-2 text-[11px] text-zinc-600">Payment status is confirmed via Stripe webhook, not just the checkout redirect — it can take a few seconds to appear after subscribing.</p>
           )}
         </div>
       </GlassCard>

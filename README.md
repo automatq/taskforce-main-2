@@ -27,6 +27,7 @@ Render reads `render.yaml`, provisions a persistent disk (so the database + rés
 | `LLM_MODEL` | optional | Model name, default `MiniMax-M2`. Set to your provider's model (e.g. `deepseek-chat`, `llama-3.3-70b-versatile`). |
 | `SEED_ON_BOOT` | optional | `true` (default) seeds demo data on an empty DB; set `false` to start empty. |
 | `STRIPE_SECRET_KEY` / `STRIPE_PRICE_ID` | optional | Enables the real $950/mo Stripe subscription checkout. |
+| `STRIPE_WEBHOOK_SECRET` | required with the above | Signing secret for the `/api/stripe/webhook` endpoint — this is what actually confirms a subscription is paid (the checkout redirect alone does not). Get it from the Stripe Dashboard → Webhooks → your endpoint. |
 | `QBO_CLIENT_ID` / `QBO_CLIENT_SECRET` | optional | Intuit Developer app credentials — enables live QuickBooks Online invoice sync (OAuth). The QuickBooks **CSV export** works without these. |
 | `QBO_ENV` | optional | `sandbox` (default) or `production`. |
 | `QBO_REDIRECT_URI` | optional | Must match your Intuit app's redirect URI, e.g. `https://your-app.com/api/quickbooks/callback`. |
@@ -34,6 +35,8 @@ Render reads `render.yaml`, provisions a persistent disk (so the database + rés
 | `PORT` | auto | Provided by the host. |
 
 After deploy, open the URL and sign in at **`/admin`** with your `ADMIN_PASSWORD`.
+
+**Wiring up Stripe:** create a webhook endpoint in the Stripe Dashboard pointing at `https://<your-app>/api/stripe/webhook`, subscribed to `checkout.session.completed`, `customer.subscription.created`, `customer.subscription.updated`, and `customer.subscription.deleted`. Copy its signing secret into `STRIPE_WEBHOOK_SECRET`.
 
 ---
 

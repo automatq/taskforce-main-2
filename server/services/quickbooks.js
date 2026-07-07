@@ -108,8 +108,16 @@ async function query(db, q) {
   return data.QueryResponse || {};
 }
 
+// QBO's query language escapes literals with a backslash (backslash and single
+// quote are the only special characters) — NOT by stripping characters, which
+// would silently corrupt legitimate names like "O'Brien Staffing".
+// https://developer.intuit.com/app/developer/qbo/docs/learn/explore-the-quickbooks-online-api/data-queries
+function qboEscape(value) {
+  return String(value).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+}
+
 async function findOrCreateCustomer(db, name, email) {
-  const safe = String(name).replace(/['\\]/g, '');
+  const safe = qboEscape(name);
   const qr = await query(db, `select * from Customer where DisplayName = '${safe}'`);
   if (qr.Customer?.[0]) return qr.Customer[0];
   const created = await api(db, '/customer', {

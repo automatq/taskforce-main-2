@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
+import rateLimit from 'express-rate-limit';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import db from '../db.js';
@@ -10,6 +11,7 @@ import { scoreApplicationById, aiScoringEnabled, draftFollowUp } from '../servic
 import {
   qboConfigured, buildAuthUrl, savePendingState, getQbo, clearQbo, pushInvoice,
 } from '../services/quickbooks.js';
+import { getStripeSubscription } from './stripe.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const router = Router();
@@ -19,7 +21,16 @@ const ORG_ID = 1; // single agency for now; schema is tenant-ready via org_id
 // ---------------------------------------------------------------------------
 // Auth
 // ---------------------------------------------------------------------------
-router.post('/login', async (req, res) => {
+// Throttle brute-force attempts against the single shared admin password.
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many login attempts. Please try again in a few minutes.' },
+});
+
+router.post('/login', loginLimiter, async (req, res) => {
   const { password } = req.body;
   if (!password) return res.status(400).json({ error: 'Password required' });
 
@@ -175,8 +186,12 @@ router.post('/applicants/:id/score', auth, async (req, res) => {
   if (!aiScoringEnabled()) {
     return res.status(503).json({ error: 'AI scoring unavailable — set LLM_API_KEY' });
   }
+  const exists = db.prepare('SELECT id FROM applications WHERE id = ?').get(req.params.id);
+  if (!exists) return res.status(404).json({ error: 'Applicant not found' });
+
   const result = await scoreApplicationById(db, Number(req.params.id));
   if (!result) return res.status(404).json({ error: 'Could not score applicant' });
+  if (result.error) return res.status(502).json({ error: result.error });
   res.json(result);
 });
 
@@ -242,16 +257,27 @@ router.get('/invoices', auth, (req, res) => {
   res.json(db.prepare(`${invoicesWithMeta} ORDER BY i.created_at DESC`).all());
 });
 
+// Auto-numbering is derived from the AUTOINCREMENT id (never reused, even after
+// deletes) instead of COUNT(*), which can hand out a number that already exists
+// once an earlier invoice has been deleted.
+const insertInvoiceStmt = db.prepare(
+  `INSERT INTO invoices (org_id, employer_id, number, amount, status, issued_at, due_at)
+   VALUES (?, ?, ?, ?, ?, ?, ?)`
+);
+const setInvoiceNumberStmt = db.prepare('UPDATE invoices SET number = ? WHERE id = ?');
+const createInvoiceTx = db.transaction((employer_id, number, amount, status, issued_at, due_at) => {
+  const result = insertInvoiceStmt.run(ORG_ID, employer_id, number || null, amount, status, issued_at, due_at);
+  const id = result.lastInsertRowid;
+  if (!number) setInvoiceNumberStmt.run(`INV-${1000 + id}`, id);
+  return id;
+});
+
 router.post('/invoices', auth, (req, res) => {
   const { employer_id, number, amount, status, issued_at, due_at } = req.body;
   if (!employer_id) return res.status(400).json({ error: 'Employer is required' });
   const st = INVOICE_STATUSES.includes(status) ? status : 'draft';
-  const num = number || `INV-${1000 + (db.prepare('SELECT COUNT(*) n FROM invoices').get().n + 1)}`;
-  const result = db.prepare(
-    `INSERT INTO invoices (org_id, employer_id, number, amount, status, issued_at, due_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`
-  ).run(ORG_ID, employer_id, num, Number(amount) || 0, st, issued_at || null, due_at || null);
-  res.status(201).json(db.prepare(`${invoicesWithMeta} WHERE i.id = ?`).get(result.lastInsertRowid));
+  const id = createInvoiceTx(employer_id, number || null, Number(amount) || 0, st, issued_at || null, due_at || null);
+  res.status(201).json(db.prepare(`${invoicesWithMeta} WHERE i.id = ?`).get(id));
 });
 
 router.put('/invoices/:id', auth, (req, res) => {
@@ -295,6 +321,8 @@ router.get('/settings', auth, (req, res) => {
     id: org.id, name: org.name, settings: safeParse(org.settings) || {},
     aiScoring: aiScoringEnabled(),
     stripe: Boolean(process.env.STRIPE_SECRET_KEY && process.env.STRIPE_PRICE_ID),
+    stripeWebhookConfigured: Boolean(process.env.STRIPE_WEBHOOK_SECRET),
+    subscription: getStripeSubscription(),
   });
 });
 
@@ -450,9 +478,18 @@ router.post('/invoices/:id/quickbooks', auth, async (req, res) => {
   const invoice = db.prepare('SELECT * FROM invoices WHERE id = ?').get(req.params.id);
   if (!invoice) return res.status(404).json({ error: 'Invoice not found' });
   if (!getQbo(db)) return res.status(503).json({ error: 'Connect QuickBooks in Settings first' });
+
+  // Idempotency: this invoice was already pushed — don't create a duplicate in
+  // QuickBooks. Pass ?force=1 to intentionally re-push (e.g. after a manual delete on the QBO side).
+  if (invoice.qbo_invoice_id && req.query.force !== '1') {
+    return res.json({ synced: true, alreadySynced: true, qbo_id: invoice.qbo_invoice_id, doc_number: invoice.number });
+  }
+
   const employer = invoice.employer_id ? db.prepare('SELECT * FROM employers WHERE id = ?').get(invoice.employer_id) : null;
   try {
     const qbInv = await pushInvoice(db, invoice, employer);
+    db.prepare("UPDATE invoices SET qbo_invoice_id = ?, qbo_synced_at = datetime('now') WHERE id = ?")
+      .run(qbInv.Id, invoice.id);
     res.json({ synced: true, qbo_id: qbInv.Id, doc_number: qbInv.DocNumber });
   } catch (err) {
     res.status(502).json({ error: err.message });

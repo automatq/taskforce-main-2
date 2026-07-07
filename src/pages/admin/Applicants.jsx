@@ -46,10 +46,14 @@ export default function Applicants() {
     setScoring(true);
     try {
       const result = await apiFetch(`/admin/applicants/${id}/score`, { method: 'POST' });
-      setApplicants((prev) => prev.map((a) => (a.id === id ? { ...a, ai_score: result.score, ai_reasons: result.reasons } : a)));
-      if (active?.id === id) setActive({ ...active, ai_score: result.score, ai_reasons: result.reasons });
+      setApplicants((prev) => prev.map((a) => (a.id === id ? { ...a, ai_score: result.score, ai_reasons: result.reasons, ai_score_error: null } : a)));
+      if (active?.id === id) setActive({ ...active, ai_score: result.score, ai_reasons: result.reasons, ai_score_error: null });
       toast.success(`Scored ${result.score}/100`);
-    } catch (err) { toast.error(err.message); }
+    } catch (err) {
+      setApplicants((prev) => prev.map((a) => (a.id === id ? { ...a, ai_score_error: err.message } : a)));
+      if (active?.id === id) setActive({ ...active, ai_score_error: err.message });
+      toast.error(err.message);
+    }
     setScoring(false);
   };
 
@@ -133,7 +137,7 @@ export default function Applicants() {
                   <div className="text-zinc-300">{a.job_title}</div>
                   <div className="text-xs text-zinc-500">{a.company || '—'}</div>
                 </td>
-                <td className="px-5 py-3.5"><ScoreChip score={a.ai_score} /></td>
+                <td className="px-5 py-3.5"><ScoreChip score={a.ai_score} error={a.ai_score_error} /></td>
                 <td className="px-5 py-3.5 text-zinc-500">{relativeDate(a.created_at)}</td>
                 <td className="px-5 py-3.5" onClick={(e) => e.stopPropagation()}>
                   <select
@@ -166,7 +170,7 @@ export default function Applicants() {
                 <h3 className="text-lg font-semibold text-white">{active.name}</h3>
                 <div className="text-sm text-zinc-500">{active.job_title} · {active.company || '—'}</div>
               </div>
-              <ScoreChip score={active.ai_score} />
+              <ScoreChip score={active.ai_score} error={active.ai_score_error} />
             </div>
 
             <div className="grid grid-cols-2 gap-3 text-sm">
@@ -202,7 +206,18 @@ export default function Applicants() {
                       </li>
                     ))}
                   </ul>
+                  {active.ai_score_error && (
+                    <div className="mt-3 flex items-start gap-2 rounded-xl bg-rose-500/10 p-3 ring-1 ring-rose-400/20">
+                      <Icon name="solar:danger-triangle-bold" className="mt-0.5 text-sm text-rose-300" />
+                      <p className="min-w-0 text-sm text-rose-200 break-words">Showing the last successful score — a more recent re-score attempt failed: {active.ai_score_error}</p>
+                    </div>
+                  )}
                 </>
+              ) : active.ai_score_error ? (
+                <div className="mt-3 flex items-start gap-2 rounded-xl bg-rose-500/10 p-3 ring-1 ring-rose-400/20">
+                  <Icon name="solar:danger-triangle-bold" className="mt-0.5 text-sm text-rose-300" />
+                  <p className="min-w-0 text-sm text-rose-200 break-words">Scoring failed: {active.ai_score_error}</p>
+                </div>
               ) : (
                 <p className="mt-3 text-sm text-zinc-500">
                   {aiScoring ? 'Not yet scored. Click Re-score to evaluate this résumé against the job.' : 'AI scoring is inactive — set LLM_API_KEY to enable.'}

@@ -14,6 +14,7 @@ import jobsRouter from './routes/jobs.js';
 import applyRouter from './routes/apply.js';
 import adminRouter from './routes/admin.js';
 import quickbooksRouter from './routes/quickbooks.js';
+import stripeRouter from './routes/stripe.js';
 
 // ---------------------------------------------------------------------------
 // First-boot bootstrap — makes 1-click deploys work with zero manual setup.
@@ -46,7 +47,19 @@ try {
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// Render/Railway/etc. sit in front of this app behind exactly one reverse-proxy
+// hop — trust it so req.ip (used by rate limiting) reflects the real client,
+// not the proxy. A bare `true` would trust the whole X-Forwarded-For chain,
+// which is spoofable; `1` trusts only the immediate hop.
+app.set('trust proxy', 1);
+
 app.use(cors());
+
+// Stripe's webhook signature is computed over the exact raw request bytes, so
+// this route must see the unparsed body — mount it with express.raw() before
+// the global express.json() touches the request.
+app.use('/api/stripe', express.raw({ type: 'application/json' }), stripeRouter);
+
 app.use(express.json());
 
 // API routes
