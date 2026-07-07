@@ -192,38 +192,44 @@ router.get('/stats', auth, blockViewerWrites, (req, res) => {
 // ---------------------------------------------------------------------------
 const jobsWithMeta = `
   SELECT j.*, e.name AS company,
-         (SELECT COUNT(*) FROM applications a WHERE a.job_id = j.id) AS applicant_count
+         (SELECT COUNT(*) FROM applications a WHERE a.job_id = j.id) AS applicant_count,
+         (SELECT COUNT(*) FROM applications a WHERE a.job_id = j.id AND a.status = 'hired') AS positions_filled
   FROM jobs j LEFT JOIN employers e ON j.employer_id = e.id
 `;
+
+function parsePositionsNeeded(v) {
+  const n = Number(v);
+  return Number.isInteger(n) && n > 0 ? n : 1;
+}
 
 router.get('/jobs', auth, blockViewerWrites, (req, res) => {
   res.json(db.prepare(`${jobsWithMeta} ORDER BY j.created_at DESC`).all());
 });
 
 router.post('/jobs', auth, blockViewerWrites, (req, res) => {
-  const { title, employer_id, location, type, description, requirements, rate, bill_rate, status } = req.body;
+  const { title, employer_id, location, type, description, requirements, rate, bill_rate, status, positions_needed } = req.body;
   if (!title || !description) return res.status(400).json({ error: 'Title and description are required' });
 
   const st = status || 'active';
   const result = db.prepare(
-    `INSERT INTO jobs (org_id, employer_id, title, location, type, description, requirements, rate, bill_rate, status, is_active)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    `INSERT INTO jobs (org_id, employer_id, title, location, type, description, requirements, rate, bill_rate, status, positions_needed, is_active)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(
     ORG_ID, employer_id || null, title, location || 'Your City, ST', type || 'Full-Time',
-    description, requirements || '', rate ?? null, bill_rate ?? null, st, st === 'active' ? 1 : 0
+    description, requirements || '', rate ?? null, bill_rate ?? null, st, parsePositionsNeeded(positions_needed), st === 'active' ? 1 : 0
   );
   res.status(201).json(db.prepare(`${jobsWithMeta} WHERE j.id = ?`).get(result.lastInsertRowid));
 });
 
 router.put('/jobs/:id', auth, blockViewerWrites, (req, res) => {
-  const { title, employer_id, location, type, description, requirements, rate, bill_rate, status } = req.body;
+  const { title, employer_id, location, type, description, requirements, rate, bill_rate, status, positions_needed } = req.body;
   const st = status || 'active';
   db.prepare(
     `UPDATE jobs SET employer_id = ?, title = ?, location = ?, type = ?, description = ?, requirements = ?,
-       rate = ?, bill_rate = ?, status = ?, is_active = ?, updated_at = datetime('now') WHERE id = ?`
+       rate = ?, bill_rate = ?, status = ?, positions_needed = ?, is_active = ?, updated_at = datetime('now') WHERE id = ?`
   ).run(
     employer_id || null, title, location, type, description, requirements || '',
-    rate ?? null, bill_rate ?? null, st, st === 'active' ? 1 : 0, req.params.id
+    rate ?? null, bill_rate ?? null, st, parsePositionsNeeded(positions_needed), st === 'active' ? 1 : 0, req.params.id
   );
   const job = db.prepare(`${jobsWithMeta} WHERE j.id = ?`).get(req.params.id);
   if (!job) return res.status(404).json({ error: 'Job not found' });
@@ -234,6 +240,43 @@ router.delete('/jobs/:id', auth, blockViewerWrites, (req, res) => {
   const result = db.prepare('DELETE FROM jobs WHERE id = ?').run(req.params.id);
   if (result.changes === 0) return res.status(404).json({ error: 'Job not found' });
   res.json({ message: 'Job deleted' });
+});
+
+// ---------------------------------------------------------------------------
+// Notifications — recruiting activity feed, read state is per-user
+// ---------------------------------------------------------------------------
+router.get('/notifications', auth, (req, res) => {
+  const limit = Math.min(Number(req.query.limit) || 30, 100);
+  const rows = db.prepare(`
+    SELECT n.*, r.read_at
+    FROM notifications n
+    LEFT JOIN notification_reads r ON r.notification_id = n.id AND r.user_id = ?
+    ORDER BY n.created_at DESC LIMIT ?
+  `).all(req.user.id, limit);
+  const unread = db.prepare(`
+    SELECT COUNT(*) n FROM notifications n
+    LEFT JOIN notification_reads r ON r.notification_id = n.id AND r.user_id = ?
+    WHERE r.read_at IS NULL
+  `).get(req.user.id).n;
+  res.json({ notifications: rows.map((r) => ({ ...r, read: r.read_at != null })), unread_count: unread });
+});
+
+router.post('/notifications/:id/read', auth, (req, res) => {
+  const exists = db.prepare('SELECT id FROM notifications WHERE id = ?').get(req.params.id);
+  if (!exists) return res.status(404).json({ error: 'Notification not found' });
+  db.prepare(
+    'INSERT INTO notification_reads (notification_id, user_id) VALUES (?, ?) ON CONFLICT(notification_id, user_id) DO NOTHING'
+  ).run(req.params.id, req.user.id);
+  res.json({ message: 'Marked read' });
+});
+
+router.post('/notifications/read-all', auth, (req, res) => {
+  db.prepare(`
+    INSERT INTO notification_reads (notification_id, user_id)
+    SELECT id, ? FROM notifications
+    WHERE id NOT IN (SELECT notification_id FROM notification_reads WHERE user_id = ?)
+  `).run(req.user.id, req.user.id);
+  res.json({ message: 'All marked read' });
 });
 
 // ---------------------------------------------------------------------------
@@ -266,12 +309,46 @@ router.patch('/applicants/:id', auth, blockViewerWrites, (req, res) => {
   if (status && !APPLICANT_STATUSES.includes(status)) {
     return res.status(400).json({ error: 'Invalid status' });
   }
-  const existing = db.prepare('SELECT id FROM applications WHERE id = ?').get(req.params.id);
+  const existing = db.prepare('SELECT * FROM applications WHERE id = ?').get(req.params.id);
   if (!existing) return res.status(404).json({ error: 'Applicant not found' });
 
   if (status) {
     db.prepare("UPDATE applications SET status = ?, updated_at = datetime('now') WHERE id = ?")
       .run(status, req.params.id);
+
+    // Fire recruiting notifications on a genuine new-hire transition only —
+    // guards against duplicate notifications on unrelated re-saves where the
+    // status was already 'hired'.
+    if (status === 'hired' && existing.status !== 'hired') {
+      const job = db.prepare('SELECT id, title, positions_needed FROM jobs WHERE id = ?').get(existing.job_id);
+      if (job) {
+        db.prepare(
+          `INSERT INTO notifications (org_id, type, title, body, link, job_id, application_id)
+           VALUES (1, 'hired', ?, ?, ?, ?, ?)`
+        ).run(
+          `${existing.name} was hired`,
+          `Hired for ${job.title}`,
+          `/admin/applicants?q=${encodeURIComponent(existing.name)}`,
+          job.id, existing.id
+        );
+
+        // Only notify on the specific hire that crosses the target — not on
+        // every hire that happens to land while already at/over target (that
+        // would spam an agency that intentionally overstaffs or backfills).
+        const filled = db.prepare("SELECT COUNT(*) n FROM applications WHERE job_id = ? AND status = 'hired'").get(job.id).n;
+        if (filled - 1 < job.positions_needed && filled >= job.positions_needed) {
+          db.prepare(
+            `INSERT INTO notifications (org_id, type, title, body, link, job_id)
+             VALUES (1, 'job_filled', ?, ?, ?, ?)`
+          ).run(
+            `${job.title} is fully staffed`,
+            `${filled} of ${job.positions_needed} positions filled`,
+            `/admin/jobs?q=${encodeURIComponent(job.title)}`,
+            job.id
+          );
+        }
+      }
+    }
   }
   res.json(db.prepare('SELECT * FROM applications WHERE id = ?').get(req.params.id));
 });

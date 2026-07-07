@@ -66,6 +66,8 @@ const STATUS_COLORS = {
   submitted: 'amber', approved: 'emerald', invoiced: 'sky',
   // team roles + account status
   owner: 'violet', recruiter: 'sky', viewer: 'zinc', inactive: 'zinc',
+  // job positions
+  filled: 'emerald',
 };
 
 export function StatusBadge({ status }) {

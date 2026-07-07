@@ -6,6 +6,7 @@ import { ToastProvider } from './Toast';
 import { ConfirmProvider } from './Confirm';
 import GlobalSearch from './GlobalSearch';
 import UserMenu from './UserMenu';
+import NotificationBell from './NotificationBell';
 
 const NAV = [
   { to: '/admin/dashboard', label: 'Dashboard', icon: 'solar:widget-2-linear' },
@@ -116,6 +117,7 @@ export default function AdminLayout() {
                 <span className="w-32 text-left">Search…</span>
                 <kbd className="rounded bg-zinc-950/5 px-1.5 py-0.5 text-[10px] ring-1 ring-zinc-950/10 dark:bg-white/5 dark:ring-white/10">⌘K</kbd>
               </button>
+              <NotificationBell />
               <UserMenu />
             </div>
           </header>

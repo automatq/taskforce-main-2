@@ -190,7 +190,7 @@ export default function Dashboard() {
               >
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium text-zinc-900 dark:text-white">{j.title}</span>
-                  <span className="text-xs text-zinc-500">{j.applicant_count} appl.</span>
+                  <span className="text-xs text-zinc-500">{j.applicant_count} appl. · {j.positions_filled}/{j.positions_needed} filled</span>
                 </div>
                 <div className="mt-1 text-xs text-zinc-500">{j.company || '—'} · {j.location}</div>
                 <div className="mt-2 text-xs text-emerald-600 dark:text-emerald-300">${j.rate}/hr</div>

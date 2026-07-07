@@ -103,6 +103,25 @@ db.exec(`
     created_at TEXT DEFAULT (datetime('now')),
     UNIQUE(application_id, week_start)
   );
+
+  CREATE TABLE IF NOT EXISTS notifications (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    org_id INTEGER NOT NULL DEFAULT 1 REFERENCES organizations(id) ON DELETE CASCADE,
+    type TEXT NOT NULL, -- new_applicant | hired | job_filled
+    title TEXT NOT NULL,
+    body TEXT,
+    link TEXT, -- frontend route to navigate to on click
+    job_id INTEGER REFERENCES jobs(id) ON DELETE CASCADE,
+    application_id INTEGER REFERENCES applications(id) ON DELETE CASCADE,
+    created_at TEXT DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS notification_reads (
+    notification_id INTEGER NOT NULL REFERENCES notifications(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    read_at TEXT DEFAULT (datetime('now')),
+    PRIMARY KEY (notification_id, user_id)
+  );
 `);
 
 // ---------------------------------------------------------------------------
@@ -124,6 +143,7 @@ addColumn('jobs', 'employer_id', 'employer_id INTEGER REFERENCES employers(id) O
 addColumn('jobs', 'rate', 'rate REAL');         // hourly pay rate ($/hr)
 addColumn('jobs', 'bill_rate', 'bill_rate REAL'); // hourly bill rate charged to the employer
 addColumn('jobs', 'status', "status TEXT NOT NULL DEFAULT 'active'"); // active | closed | draft
+addColumn('jobs', 'positions_needed', 'positions_needed INTEGER NOT NULL DEFAULT 1');
 
 addColumn('applications', 'org_id', 'org_id INTEGER NOT NULL DEFAULT 1');
 addColumn('applications', 'email', 'email TEXT');
@@ -162,6 +182,8 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_timesheets_job ON timesheets(job_id);
   CREATE INDEX IF NOT EXISTS idx_timesheets_status ON timesheets(status);
   CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email);
+  CREATE INDEX IF NOT EXISTS idx_notifications_created ON notifications(created_at);
+  CREATE INDEX IF NOT EXISTS idx_notification_reads_user ON notification_reads(user_id);
 `);
 
 // Ensure the default organization exists.

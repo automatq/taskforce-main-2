@@ -74,6 +74,8 @@ Every account (including the Owner) can change their own password from the accou
 
 - **Branded job board** + candidate apply flow (résumé upload)
 - **Admin console**: Dashboard KPIs (fill rate, time-to-fill, margin), Jobs, Applicants pipeline, Employers CRM, Timesheets, Billing/invoices, Documents, Settings
+- **Positions to fill** — set how many hires a job posting needs; hiring a candidate counts toward it automatically, with a live "2/3 filled" indicator and a "Filled" badge once you hit target (no auto-close — you decide when to close the posting)
+- **In-app notifications** — a bell in the topbar tracks new applicants, hires, and fully-staffed jobs, with independent read state per team member
 - **Multi-user accounts with roles** — Owner/Recruiter/Viewer, one agency login that scales to a full team (see [Team & roles](#-team--roles))
 - **Timesheets & payroll** — hired candidates log hours via a no-login link (`/timesheet/:token`, texted or emailed — no portal account needed); the agency approves in-app, then one click either exports a payroll-ready CSV (ADP/Gusto/Paychex-style) or batch-generates draft client invoices from approved hours using each job's bill rate
 - **AI candidate scoring** — résumé vs job, 0–100 + reasons, auto-scored on apply (your LLM provider)

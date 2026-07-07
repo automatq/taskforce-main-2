@@ -50,12 +50,22 @@ router.post('/:id/apply', upload.single('resume'), (req, res) => {
     return res.status(400).json({ error: 'Resume file is required' });
   }
 
-  const job = db.prepare('SELECT id FROM jobs WHERE id = ? AND is_active = 1').get(jobId);
+  const job = db.prepare('SELECT id, title FROM jobs WHERE id = ? AND is_active = 1').get(jobId);
   if (!job) return res.status(404).json({ error: 'Job not found' });
 
   const result = db.prepare(
     'INSERT INTO applications (org_id, job_id, name, phone, email, resume_path) VALUES (1, ?, ?, ?, ?, ?)'
   ).run(jobId, name, phone, email || '', req.file.filename);
+
+  db.prepare(
+    `INSERT INTO notifications (org_id, type, title, body, link, job_id, application_id)
+     VALUES (1, 'new_applicant', ?, ?, ?, ?, ?)`
+  ).run(
+    `New applicant for ${job.title}`,
+    `${name} applied`,
+    `/admin/applicants?q=${encodeURIComponent(name)}`,
+    job.id, result.lastInsertRowid
+  );
 
   // Fire-and-forget AI scoring so the applicant gets a match score automatically.
   if (aiScoringEnabled()) {

@@ -10,7 +10,7 @@ import { useConfirm } from '../../components/admin/Confirm';
 
 const TYPES = ['Full-Time', 'Part-Time', 'Contract'];
 const STATUSES = ['active', 'closed', 'draft'];
-const blankJob = { title: '', employer_id: '', location: 'Your City, ST', type: 'Full-Time', rate: '', bill_rate: '', status: 'active', description: '', requirements: '' };
+const blankJob = { title: '', employer_id: '', location: 'Your City, ST', type: 'Full-Time', rate: '', bill_rate: '', status: 'active', positions_needed: 1, description: '', requirements: '' };
 
 export default function Jobs() {
   const [jobs, setJobs] = useState([]);
@@ -40,6 +40,7 @@ export default function Jobs() {
     setForm({
       title: job.title, employer_id: job.employer_id || '', location: job.location, type: job.type,
       rate: job.rate ?? '', bill_rate: job.bill_rate ?? '', status: job.status,
+      positions_needed: job.positions_needed ?? 1,
       description: job.description || '', requirements: job.requirements || '',
     });
     setEditing(job);
@@ -53,6 +54,7 @@ export default function Jobs() {
       employer_id: form.employer_id || null,
       rate: form.rate === '' ? null : Number(form.rate),
       bill_rate: form.bill_rate === '' ? null : Number(form.bill_rate),
+      positions_needed: Number(form.positions_needed) || 1,
     };
     try {
       if (editing === 'new') await apiFetch('/admin/jobs', { method: 'POST', body: JSON.stringify(payload) });
@@ -107,7 +109,7 @@ export default function Jobs() {
         ) : (
           <Table columns={[
             { label: 'Title' }, { label: 'Company' }, { label: 'Location' }, { label: 'Type' },
-            { label: 'Rate' }, { label: 'Applicants' }, { label: 'Status' }, { label: 'Posted' }, { label: '', align: 'right' },
+            { label: 'Rate' }, { label: 'Applicants' }, { label: 'Positions' }, { label: 'Status' }, { label: 'Posted' }, { label: '', align: 'right' },
           ]}>
             {shown.map((j) => (
               <tr key={j.id} className="group transition hover:bg-zinc-950/[0.03] dark:hover:bg-white/[0.03]">
@@ -120,6 +122,12 @@ export default function Jobs() {
                   <button onClick={() => navigate(`/admin/applicants?q=${encodeURIComponent(j.title)}`)} className="text-zinc-700 dark:text-zinc-300 underline-offset-2 hover:text-sky-600 dark:hover:text-sky-300 hover:underline">
                     {j.applicant_count}
                   </button>
+                </td>
+                <td className="px-5 py-3.5">
+                  <div className="flex items-center gap-2">
+                    <span className="tabular-nums text-zinc-700 dark:text-zinc-300">{j.positions_filled}/{j.positions_needed}</span>
+                    {j.positions_filled >= j.positions_needed && <StatusBadge status="filled" />}
+                  </div>
                 </td>
                 <td className="px-5 py-3.5"><StatusBadge status={j.status} /></td>
                 <td className="px-5 py-3.5 text-zinc-500">{(j.created_at || '').slice(0, 10)}</td>
@@ -149,9 +157,10 @@ export default function Jobs() {
             <Field label="Location"><Input value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} /></Field>
             <Field label="Type"><Select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}>{TYPES.map((t) => <option key={t}>{t}</option>)}</Select></Field>
           </div>
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-4 gap-4">
             <Field label="Pay Rate ($/hr)" hint="paid to worker"><Input type="number" step="0.01" value={form.rate} onChange={(e) => setForm({ ...form, rate: e.target.value })} /></Field>
             <Field label="Bill Rate ($/hr)" hint="charged to client"><Input type="number" step="0.01" value={form.bill_rate} onChange={(e) => setForm({ ...form, bill_rate: e.target.value })} /></Field>
+            <Field label="Positions to Fill"><Input type="number" min="1" step="1" value={form.positions_needed} onChange={(e) => setForm({ ...form, positions_needed: e.target.value })} /></Field>
             <Field label="Status"><Select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>{STATUSES.map((s) => <option key={s} value={s} className="capitalize">{s}</option>)}</Select></Field>
           </div>
           {form.rate && form.bill_rate && Number(form.bill_rate) > 0 && (
