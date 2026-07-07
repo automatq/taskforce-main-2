@@ -10,7 +10,7 @@ Stack: Vite + React (frontend) · Express + better-sqlite3 (backend) · any Open
 
 [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/automatq/taskforce-main-2)
 
-Render reads `render.yaml`, provisions a persistent disk (so the database + résumés survive restarts), auto-generates `JWT_SECRET`, seeds demo data on first boot, and prompts you for **one thing** — your admin password. That's it.
+Render reads `render.yaml`, provisions a persistent disk (so the database + résumés survive restarts), auto-generates `JWT_SECRET`, seeds demo data on first boot, and prompts you for **one thing** — your admin password. That's it. The first time the server boots, that password creates your **Owner** account — from there, invite your team from **Team** in the admin sidebar (see [Team & roles](#-team--roles) below).
 
 **Other hosts** (anything that runs a Docker container with a volume):
 - **Railway** — connect the repo; it uses `railway.json`. Add a volume mounted at `/app/persist`, then set the env vars below.
@@ -20,7 +20,8 @@ Render reads `render.yaml`, provisions a persistent disk (so the database + rés
 
 | Variable | Required | Notes |
 |---|---|---|
-| `ADMIN_PASSWORD` | **yes** | Your admin login password. Hashed automatically at boot. |
+| `ADMIN_PASSWORD` | **yes** | Password for the first **Owner** account, created automatically the first time the server boots against an empty database. Changing it later does nothing — manage your password from the Team menu instead. |
+| `ADMIN_EMAIL` | optional | Email for that first Owner account. Default `owner@staffing.local`. |
 | `JWT_SECRET` | recommended | Auto-generated if unset (logins reset on restart unless you set/persist it). |
 | `LLM_API_KEY` | optional | Enables live AI résumé scoring + the AI agents. Any **OpenAI-compatible** provider. Without it, those degrade gracefully. |
 | `LLM_BASE_URL` | optional | Provider base URL. Default `https://api.minimax.io/v1` (MiniMax). Also works with DeepSeek (`https://api.deepseek.com/v1`), Groq, OpenRouter, Together, OpenAI, local Ollama. |
@@ -34,7 +35,7 @@ Render reads `render.yaml`, provisions a persistent disk (so the database + rés
 | `NODE_ENV` | auto | `production` makes the server serve the built frontend. |
 | `PORT` | auto | Provided by the host. |
 
-After deploy, open the URL and sign in at **`/admin`** with your `ADMIN_PASSWORD`.
+After deploy, open the URL and sign in at **`/admin`** with `ADMIN_EMAIL` (or the default `owner@staffing.local`) and your `ADMIN_PASSWORD`.
 
 **Wiring up Stripe:** create a webhook endpoint in the Stripe Dashboard pointing at `https://<your-app>/api/stripe/webhook`, subscribed to `checkout.session.completed`, `customer.subscription.created`, `customer.subscription.updated`, and `customer.subscription.deleted`. Copy its signing secret into `STRIPE_WEBHOOK_SECRET`.
 
@@ -51,7 +52,21 @@ PORT=3005 npm run dev:server                   # backend  → :3005
 VITE_API_TARGET=http://localhost:3005 npm run dev   # frontend → :5173
 ```
 
-Create `server/.env` with `ADMIN_PASSWORD=...` (and optionally `JWT_SECRET`, plus `LLM_API_KEY`/`LLM_BASE_URL`/`LLM_MODEL` for AI). Open http://localhost:5173, admin at `/admin`.
+Create `server/.env` with `ADMIN_PASSWORD=...` (and optionally `ADMIN_EMAIL`, `JWT_SECRET`, plus `LLM_API_KEY`/`LLM_BASE_URL`/`LLM_MODEL` for AI). Open http://localhost:5173, admin at `/admin`. Run `npm run seed` to also get two demo team logins — see below.
+
+---
+
+## 👥 Team & roles
+
+One agency, one login to start — then invite your team from **Team** in the sidebar (Owner only). No shared passwords, no per-seat email/SMTP setup: the Owner sets each person's initial password directly and shares it with them.
+
+| Role | Access |
+|---|---|
+| **Owner** | Everything — Jobs, Applicants, Employers, Timesheets, Documents, AI Agents, **and** Billing, Settings, QuickBooks, Team management. Exactly what the deploying agency owner needs; the last remaining Owner account can't be demoted, deactivated, or deleted, so you can't lock yourself out. |
+| **Recruiter** | Day-to-day ATS work — Jobs, Applicants, Employers, Timesheets, Documents, AI Agents. No Billing, Settings, QuickBooks, or Team. |
+| **Viewer** | Read-only across everything a Recruiter can see. |
+
+Every account (including the Owner) can change their own password from the account menu in the top-right corner. Running `npm run seed` also adds two demo logins so you can try each role — **`recruiter@demo.local`** / **`viewer@demo.local`**, password `demopass123`. These are for demoing the product; remove them (or just leave them deactivated) before handing a deployment to a real customer.
 
 ---
 
@@ -59,6 +74,7 @@ Create `server/.env` with `ADMIN_PASSWORD=...` (and optionally `JWT_SECRET`, plu
 
 - **Branded job board** + candidate apply flow (résumé upload)
 - **Admin console**: Dashboard KPIs (fill rate, time-to-fill, margin), Jobs, Applicants pipeline, Employers CRM, Timesheets, Billing/invoices, Documents, Settings
+- **Multi-user accounts with roles** — Owner/Recruiter/Viewer, one agency login that scales to a full team (see [Team & roles](#-team--roles))
 - **Timesheets & payroll** — hired candidates log hours via a no-login link (`/timesheet/:token`, texted or emailed — no portal account needed); the agency approves in-app, then one click either exports a payroll-ready CSV (ADP/Gusto/Paychex-style) or batch-generates draft client invoices from approved hours using each job's bill rate
 - **AI candidate scoring** — résumé vs job, 0–100 + reasons, auto-scored on apply (your LLM provider)
 - **Daily AI shortlist** — the top-5 candidates surfaced for you

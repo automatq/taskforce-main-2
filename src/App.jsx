@@ -18,6 +18,7 @@ import Timesheets from './pages/admin/Timesheets';
 import Billing from './pages/admin/Billing';
 import Documents from './pages/admin/Documents';
 import Settings from './pages/admin/Settings';
+import Team from './pages/admin/Team';
 import { AuthProvider } from './hooks/useAuth';
 
 // Public marketing/job-board shell — light theme with Navbar/Footer chrome.
@@ -58,6 +59,7 @@ function App() {
           <Route path="billing" element={<Billing />} />
           <Route path="documents" element={<Documents />} />
           <Route path="settings" element={<Settings />} />
+          <Route path="team" element={<Team />} />
         </Route>
 
         {/* Public site (light) */}

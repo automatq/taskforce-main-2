@@ -74,6 +74,18 @@ db.exec(`
     created_at TEXT DEFAULT (datetime('now'))
   );
 
+  CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    org_id INTEGER NOT NULL DEFAULT 1 REFERENCES organizations(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    email TEXT NOT NULL,
+    password_hash TEXT NOT NULL,
+    role TEXT NOT NULL DEFAULT 'recruiter', -- owner | recruiter | viewer
+    active INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT DEFAULT (datetime('now')),
+    last_login_at TEXT
+  );
+
   CREATE TABLE IF NOT EXISTS timesheets (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     org_id INTEGER NOT NULL DEFAULT 1 REFERENCES organizations(id) ON DELETE CASCADE,
@@ -125,6 +137,8 @@ addColumn('applications', 'timesheet_token', 'timesheet_token TEXT'); // no-logi
 addColumn('invoices', 'qbo_invoice_id', 'qbo_invoice_id TEXT'); // set once pushed to QuickBooks — prevents duplicate sync
 addColumn('invoices', 'qbo_synced_at', 'qbo_synced_at TEXT');
 
+addColumn('timesheets', 'reviewed_by', 'reviewed_by TEXT'); // name of the user who approved/rejected it
+
 // System-managed integration tokens (QuickBooks, etc.) — kept separate from the
 // user-editable `settings` JSON so saving the profile form can't clobber them.
 addColumn('organizations', 'integrations', "integrations TEXT NOT NULL DEFAULT '{}'");
@@ -147,6 +161,7 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_timesheets_application ON timesheets(application_id);
   CREATE INDEX IF NOT EXISTS idx_timesheets_job ON timesheets(job_id);
   CREATE INDEX IF NOT EXISTS idx_timesheets_status ON timesheets(status);
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email);
 `);
 
 // Ensure the default organization exists.

@@ -4,6 +4,7 @@ import { useAuth } from '../hooks/useAuth';
 import { Icon, Spinner } from '../components/admin/ui';
 
 export default function AdminLogin() {
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -19,10 +20,10 @@ export default function AdminLogin() {
     setError('');
     setLoading(true);
     try {
-      await login(password);
+      await login(email, password);
       navigate('/admin/dashboard');
-    } catch {
-      setError('Invalid password');
+    } catch (err) {
+      setError(err.message || 'Invalid email or password');
     } finally {
       setLoading(false);
     }
@@ -47,6 +48,19 @@ export default function AdminLogin() {
 
           <form onSubmit={handleSubmit} className="space-y-5">
             <label className="block">
+              <span className="mb-1.5 block text-xs font-medium text-zinc-400">Email</span>
+              <input
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-white placeholder:text-zinc-600 outline-none transition focus:border-sky-400/50 focus:bg-white/[0.06]"
+                placeholder="you@company.com"
+                autoFocus
+              />
+            </label>
+
+            <label className="block">
               <span className="mb-1.5 block text-xs font-medium text-zinc-400">Password</span>
               <input
                 type="password"
@@ -54,8 +68,7 @@ export default function AdminLogin() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-white placeholder:text-zinc-600 outline-none transition focus:border-sky-400/50 focus:bg-white/[0.06]"
-                placeholder="Enter admin password"
-                autoFocus
+                placeholder="Enter your password"
               />
             </label>
 

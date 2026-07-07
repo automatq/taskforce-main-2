@@ -63,6 +63,8 @@ const STATUS_COLORS = {
   setup: 'amber', connect: 'sky',
   // timesheets
   submitted: 'amber', approved: 'emerald', invoiced: 'sky',
+  // team roles + account status
+  owner: 'violet', recruiter: 'sky', viewer: 'zinc', inactive: 'zinc',
 };
 
 export function StatusBadge({ status }) {
@@ -120,7 +122,7 @@ export function IconButton({ icon, title, variant = 'subtle', ...rest }) {
     danger: 'text-zinc-500 hover:text-rose-300 hover:bg-rose-500/10',
   };
   return (
-    <button title={title} className={`grid place-items-center h-9 w-9 rounded-lg transition-colors ${styles[variant]}`} {...rest}>
+    <button title={title} className={`grid place-items-center h-9 w-9 rounded-lg transition-colors disabled:pointer-events-none disabled:opacity-30 ${styles[variant]}`} {...rest}>
       <Icon name={icon} className="text-lg" />
     </button>
   );

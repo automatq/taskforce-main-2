@@ -5,6 +5,7 @@ import { Icon } from './ui';
 import { ToastProvider } from './Toast';
 import { ConfirmProvider } from './Confirm';
 import GlobalSearch from './GlobalSearch';
+import UserMenu from './UserMenu';
 
 const NAV = [
   { to: '/admin/dashboard', label: 'Dashboard', icon: 'solar:widget-2-linear' },
@@ -13,20 +14,30 @@ const NAV = [
   { to: '/admin/agents', label: 'AI Agents', icon: 'solar:cpu-bolt-linear' },
   { to: '/admin/employers', label: 'Employers', icon: 'solar:buildings-2-linear' },
   { to: '/admin/timesheets', label: 'Timesheets', icon: 'solar:clock-square-linear' },
-  { to: '/admin/billing', label: 'Billing', icon: 'solar:card-linear' },
+  { to: '/admin/billing', label: 'Billing', icon: 'solar:card-linear', ownerOnly: true },
   { to: '/admin/documents', label: 'Documents', icon: 'solar:document-text-linear' },
-  { to: '/admin/settings', label: 'Settings', icon: 'solar:settings-linear' },
+  { to: '/admin/settings', label: 'Settings', icon: 'solar:settings-linear', ownerOnly: true },
+  { to: '/admin/team', label: 'Team', icon: 'solar:users-group-two-rounded-linear', ownerOnly: true },
 ];
 
 export default function AdminLayout() {
-  const { isAuthenticated, logout } = useAuth();
+  const { isAuthenticated, loading, isOwner } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [searchOpen, setSearchOpen] = useState(false);
 
   useEffect(() => {
-    if (!isAuthenticated) navigate('/admin', { replace: true });
-  }, [isAuthenticated, navigate]);
+    if (!loading && !isAuthenticated) navigate('/admin', { replace: true });
+  }, [isAuthenticated, loading, navigate]);
+
+  // Defense in depth: the sidebar already hides owner-only sections from
+  // non-owners, but a direct URL visit should still bounce rather than render
+  // a page whose API calls will just 403.
+  useEffect(() => {
+    if (loading || !isAuthenticated || isOwner) return;
+    const current = NAV.find((n) => location.pathname.startsWith(n.to));
+    if (current?.ownerOnly) navigate('/admin/dashboard', { replace: true });
+  }, [location.pathname, isAuthenticated, isOwner, loading, navigate]);
 
   useEffect(() => {
     const onKey = (e) => {
@@ -41,15 +52,10 @@ export default function AdminLayout() {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  if (!isAuthenticated) return null;
+  if (loading || !isAuthenticated) return null;
 
   const current = NAV.find((n) => location.pathname.startsWith(n.to));
   const pageTitle = current?.label || 'Dashboard';
-
-  const handleLogout = () => {
-    logout();
-    navigate('/admin');
-  };
 
   return (
     <ToastProvider>
@@ -75,7 +81,7 @@ export default function AdminLayout() {
           </div>
 
           <nav className="flex-1 space-y-1 px-3 py-2">
-            {NAV.map((item) => (
+            {NAV.filter((item) => !item.ownerOnly || isOwner).map((item) => (
               <NavLink
                 key={item.to}
                 to={item.to}
@@ -92,16 +98,6 @@ export default function AdminLayout() {
               </NavLink>
             ))}
           </nav>
-
-          <div className="border-t border-white/10 p-3">
-            <button
-              onClick={handleLogout}
-              className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-zinc-400 transition-colors hover:bg-white/5 hover:text-rose-300"
-            >
-              <Icon name="solar:logout-2-linear" className="text-lg" />
-              Sign Out
-            </button>
-          </div>
         </aside>
 
         {/* Main column */}
@@ -120,9 +116,7 @@ export default function AdminLayout() {
                 <span className="w-32 text-left">Search…</span>
                 <kbd className="rounded bg-white/5 px-1.5 py-0.5 text-[10px] ring-1 ring-white/10">⌘K</kbd>
               </button>
-              <span className="grid h-9 w-9 place-items-center rounded-full bg-gradient-to-br from-zinc-700 to-zinc-800 text-xs font-semibold text-white ring-1 ring-white/10">
-                TF
-              </span>
+              <UserMenu />
             </div>
           </header>
 

@@ -20,20 +20,30 @@ import timesheetPublicRouter from './routes/timesheetPublic.js';
 // ---------------------------------------------------------------------------
 // First-boot bootstrap — makes 1-click deploys work with zero manual setup.
 //  • JWT_SECRET: generated if absent (ephemeral — set it to persist sessions)
-//  • ADMIN_PASSWORD: hashed into ADMIN_PASSWORD_HASH so deployers set a plain
-//    password env var instead of generating a bcrypt hash by hand
+//  • First Owner account: created from ADMIN_EMAIL/ADMIN_PASSWORD the *first*
+//    time the server boots against an empty users table only — later changes
+//    to those env vars never retroactively touch an existing account, so
+//    redeploying doesn't silently reset anyone's password.
 //  • SEED_ON_BOOT: seed demo data on an empty database (default on; 'false' off)
 // ---------------------------------------------------------------------------
 if (!process.env.JWT_SECRET) {
   process.env.JWT_SECRET = crypto.randomBytes(32).toString('hex');
   console.warn('[bootstrap] JWT_SECRET not set — generated an ephemeral secret (logins reset on restart). Set JWT_SECRET to persist sessions.');
 }
-if (!process.env.ADMIN_PASSWORD_HASH && process.env.ADMIN_PASSWORD) {
-  process.env.ADMIN_PASSWORD_HASH = bcrypt.hashSync(process.env.ADMIN_PASSWORD, 10);
-  console.log('[bootstrap] Derived admin password hash from ADMIN_PASSWORD.');
-}
-if (!process.env.ADMIN_PASSWORD_HASH) {
-  console.warn('[bootstrap] No ADMIN_PASSWORD / ADMIN_PASSWORD_HASH set — admin login is disabled until one is provided.');
+try {
+  const userCount = db.prepare('SELECT COUNT(*) AS n FROM users').get().n;
+  if (userCount === 0) {
+    if (process.env.ADMIN_PASSWORD) {
+      const email = (process.env.ADMIN_EMAIL || 'owner@staffing.local').trim().toLowerCase();
+      const hash = bcrypt.hashSync(process.env.ADMIN_PASSWORD, 10);
+      db.prepare(`INSERT INTO users (org_id, name, email, password_hash, role) VALUES (1, 'Owner', ?, ?, 'owner')`).run(email, hash);
+      console.log(`[bootstrap] Created first Owner account: ${email}`);
+    } else {
+      console.warn('[bootstrap] No ADMIN_PASSWORD set — no Owner account created. Admin login is disabled until one is provided.');
+    }
+  }
+} catch (err) {
+  console.error('[bootstrap] user bootstrap failed:', err.message);
 }
 try {
   const jobCount = db.prepare('SELECT COUNT(*) AS n FROM jobs').get().n;

@@ -4,6 +4,7 @@
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { mkdirSync, writeFileSync } from 'fs';
+import bcrypt from 'bcrypt';
 import db from './db.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -221,11 +222,35 @@ for (const t of timesheets) {
   });
 }
 
+// ---------------------------------------------------------------------------
+// Demo Recruiter/Viewer team accounts — so a fresh deploy can demo the
+// multi-user roles immediately, without touching the real Owner account
+// (bootstrapped separately from ADMIN_EMAIL/ADMIN_PASSWORD in index.js).
+// Added by email if missing, never wiped/reset — safe to rerun `npm run seed`.
+// ---------------------------------------------------------------------------
+const DEMO_USER_PASSWORD = 'demopass123';
+const demoUsers = [
+  { name: 'Alex Recruiter', email: 'recruiter@demo.local', role: 'recruiter' },
+  { name: 'Jordan Viewer', email: 'viewer@demo.local', role: 'viewer' },
+];
+const insertUser = db.prepare(
+  'INSERT INTO users (org_id, name, email, password_hash, role) VALUES (1, ?, ?, ?, ?)'
+);
+for (const u of demoUsers) {
+  if (!db.prepare('SELECT id FROM users WHERE email = ?').get(u.email)) {
+    insertUser.run(u.name, u.email, bcrypt.hashSync(DEMO_USER_PASSWORD, 10), u.role);
+  }
+}
+
 const counts = {
   employers: db.prepare('SELECT COUNT(*) n FROM employers').get().n,
   jobs: db.prepare('SELECT COUNT(*) n FROM jobs').get().n,
   applicants: db.prepare('SELECT COUNT(*) n FROM applications').get().n,
   invoices: db.prepare('SELECT COUNT(*) n FROM invoices').get().n,
   timesheets: db.prepare('SELECT COUNT(*) n FROM timesheets').get().n,
+  users: db.prepare('SELECT COUNT(*) n FROM users').get().n,
 };
 console.log('Seeded:', counts);
+if (demoUsers.some((u) => db.prepare('SELECT id FROM users WHERE email = ?').get(u.email))) {
+  console.log(`Demo team logins (password: ${DEMO_USER_PASSWORD}): recruiter@demo.local, viewer@demo.local`);
+}

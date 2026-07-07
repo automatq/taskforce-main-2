@@ -5,7 +5,7 @@ import rateLimit from 'express-rate-limit';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import db from '../db.js';
-import auth from '../middleware/auth.js';
+import auth, { requireRole, blockViewerWrites } from '../middleware/auth.js';
 import crypto from 'crypto';
 import { scoreApplicationById, aiScoringEnabled, draftFollowUp } from '../services/aiScore.js';
 import {
@@ -21,7 +21,7 @@ const ORG_ID = 1; // single agency for now; schema is tenant-ready via org_id
 // ---------------------------------------------------------------------------
 // Auth
 // ---------------------------------------------------------------------------
-// Throttle brute-force attempts against the single shared admin password.
+// Throttle brute-force attempts against user passwords.
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 10,
@@ -31,20 +31,115 @@ const loginLimiter = rateLimit({
 });
 
 router.post('/login', loginLimiter, async (req, res) => {
+  const { email, password } = req.body;
+  if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
+
+  const user = db.prepare('SELECT * FROM users WHERE email = ?').get(String(email).trim().toLowerCase());
+  const hash = user?.password_hash || '$2b$10$invalidsaltinvalidsaltinvalidsaltinvalidsaltinvalidsa';
+  const match = await bcrypt.compare(password, hash);
+  if (!user || !user.active || !match) return res.status(401).json({ error: 'Invalid email or password' });
+
+  db.prepare("UPDATE users SET last_login_at = datetime('now') WHERE id = ?").run(user.id);
+  const token = jwt.sign({ sub: user.id }, process.env.JWT_SECRET, { expiresIn: '24h' });
+  res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role } });
+});
+
+router.get('/me', auth, (req, res) => {
+  res.json({ user: req.user });
+});
+
+router.put('/me/password', auth, async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+  if (!currentPassword || !newPassword) return res.status(400).json({ error: 'Current and new password are required' });
+  if (newPassword.length < 8) return res.status(400).json({ error: 'New password must be at least 8 characters' });
+
+  const user = db.prepare('SELECT password_hash FROM users WHERE id = ?').get(req.user.id);
+  const match = await bcrypt.compare(currentPassword, user.password_hash);
+  if (!match) return res.status(401).json({ error: 'Current password is incorrect' });
+
+  const hash = await bcrypt.hash(newPassword, 10);
+  db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(hash, req.user.id);
+  res.json({ message: 'Password updated' });
+});
+
+// ---------------------------------------------------------------------------
+// Team — the Owner manages named recruiter/viewer accounts under one login.
+// ---------------------------------------------------------------------------
+const ROLES = ['owner', 'recruiter', 'viewer'];
+
+router.get('/team', auth, requireRole('owner'), (req, res) => {
+  res.json(db.prepare('SELECT id, name, email, role, active, created_at, last_login_at FROM users ORDER BY created_at').all());
+});
+
+router.post('/team', auth, requireRole('owner'), async (req, res) => {
+  const { name, email, role, password } = req.body;
+  if (!name || !email || !password) return res.status(400).json({ error: 'Name, email, and password are required' });
+  if (password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
+  if (!ROLES.includes(role)) return res.status(400).json({ error: 'Invalid role' });
+
+  const normalizedEmail = String(email).trim().toLowerCase();
+  const existing = db.prepare('SELECT id FROM users WHERE email = ?').get(normalizedEmail);
+  if (existing) return res.status(409).json({ error: 'A team member with that email already exists' });
+
+  const hash = await bcrypt.hash(password, 10);
+  const result = db.prepare(
+    'INSERT INTO users (org_id, name, email, password_hash, role) VALUES (?, ?, ?, ?, ?)'
+  ).run(ORG_ID, name, normalizedEmail, hash, role);
+  res.status(201).json(db.prepare('SELECT id, name, email, role, active, created_at, last_login_at FROM users WHERE id = ?').get(result.lastInsertRowid));
+});
+
+router.put('/team/:id', auth, requireRole('owner'), (req, res) => {
+  const target = db.prepare('SELECT * FROM users WHERE id = ?').get(req.params.id);
+  if (!target) return res.status(404).json({ error: 'Team member not found' });
+
+  const { name, role, active } = req.body;
+  if (role && !ROLES.includes(role)) return res.status(400).json({ error: 'Invalid role' });
+
+  // Guard against locking the agency out of its own account by demoting,
+  // deactivating, or deleting the last remaining Owner.
+  const losingLastOwner = target.role === 'owner' && target.active
+    && ((role && role !== 'owner') || active === 0 || active === false);
+  if (losingLastOwner) {
+    const ownerCount = db.prepare("SELECT COUNT(*) n FROM users WHERE role = 'owner' AND active = 1").get().n;
+    if (ownerCount <= 1) return res.status(400).json({ error: 'Cannot remove the last Owner account' });
+  }
+
+  db.prepare(
+    'UPDATE users SET name = COALESCE(?, name), role = COALESCE(?, role), active = COALESCE(?, active) WHERE id = ?'
+  ).run(name || null, role || null, active === undefined ? null : (active ? 1 : 0), req.params.id);
+
+  res.json(db.prepare('SELECT id, name, email, role, active, created_at, last_login_at FROM users WHERE id = ?').get(req.params.id));
+});
+
+router.post('/team/:id/reset-password', auth, requireRole('owner'), async (req, res) => {
   const { password } = req.body;
-  if (!password) return res.status(400).json({ error: 'Password required' });
+  if (!password || password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
+  const target = db.prepare('SELECT id FROM users WHERE id = ?').get(req.params.id);
+  if (!target) return res.status(404).json({ error: 'Team member not found' });
 
-  const match = await bcrypt.compare(password, process.env.ADMIN_PASSWORD_HASH || '');
-  if (!match) return res.status(401).json({ error: 'Invalid password' });
+  const hash = await bcrypt.hash(password, 10);
+  db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(hash, req.params.id);
+  res.json({ message: 'Password updated' });
+});
 
-  const token = jwt.sign({ role: 'admin', org_id: ORG_ID }, process.env.JWT_SECRET, { expiresIn: '24h' });
-  res.json({ token });
+router.delete('/team/:id', auth, requireRole('owner'), (req, res) => {
+  const target = db.prepare('SELECT * FROM users WHERE id = ?').get(req.params.id);
+  if (!target) return res.status(404).json({ error: 'Team member not found' });
+  if (target.id === req.user.id) return res.status(400).json({ error: 'You cannot remove your own account' });
+
+  if (target.role === 'owner' && target.active) {
+    const ownerCount = db.prepare("SELECT COUNT(*) n FROM users WHERE role = 'owner' AND active = 1").get().n;
+    if (ownerCount <= 1) return res.status(400).json({ error: 'Cannot remove the last Owner account' });
+  }
+
+  db.prepare('DELETE FROM users WHERE id = ?').run(req.params.id);
+  res.json({ message: 'Team member removed' });
 });
 
 // ---------------------------------------------------------------------------
 // Dashboard stats — the KPIs a staffing owner watches daily
 // ---------------------------------------------------------------------------
-router.get('/stats', auth, (req, res) => {
+router.get('/stats', auth, blockViewerWrites, (req, res) => {
   const one = (sql, ...args) => db.prepare(sql).get(...args).n;
 
   const activeJobs = one("SELECT COUNT(*) n FROM jobs WHERE status = 'active'");
@@ -101,11 +196,11 @@ const jobsWithMeta = `
   FROM jobs j LEFT JOIN employers e ON j.employer_id = e.id
 `;
 
-router.get('/jobs', auth, (req, res) => {
+router.get('/jobs', auth, blockViewerWrites, (req, res) => {
   res.json(db.prepare(`${jobsWithMeta} ORDER BY j.created_at DESC`).all());
 });
 
-router.post('/jobs', auth, (req, res) => {
+router.post('/jobs', auth, blockViewerWrites, (req, res) => {
   const { title, employer_id, location, type, description, requirements, rate, bill_rate, status } = req.body;
   if (!title || !description) return res.status(400).json({ error: 'Title and description are required' });
 
@@ -120,7 +215,7 @@ router.post('/jobs', auth, (req, res) => {
   res.status(201).json(db.prepare(`${jobsWithMeta} WHERE j.id = ?`).get(result.lastInsertRowid));
 });
 
-router.put('/jobs/:id', auth, (req, res) => {
+router.put('/jobs/:id', auth, blockViewerWrites, (req, res) => {
   const { title, employer_id, location, type, description, requirements, rate, bill_rate, status } = req.body;
   const st = status || 'active';
   db.prepare(
@@ -135,7 +230,7 @@ router.put('/jobs/:id', auth, (req, res) => {
   res.json(job);
 });
 
-router.delete('/jobs/:id', auth, (req, res) => {
+router.delete('/jobs/:id', auth, blockViewerWrites, (req, res) => {
   const result = db.prepare('DELETE FROM jobs WHERE id = ?').run(req.params.id);
   if (result.changes === 0) return res.status(404).json({ error: 'Job not found' });
   res.json({ message: 'Job deleted' });
@@ -146,7 +241,7 @@ router.delete('/jobs/:id', auth, (req, res) => {
 // ---------------------------------------------------------------------------
 const APPLICANT_STATUSES = ['new', 'reviewing', 'interviewing', 'hired', 'rejected'];
 
-router.get('/applicants', auth, (req, res) => {
+router.get('/applicants', auth, blockViewerWrites, (req, res) => {
   const { job_id, status } = req.query;
   let sql = `
     SELECT a.*, j.title AS job_title, e.name AS company
@@ -166,7 +261,7 @@ router.get('/applicants', auth, (req, res) => {
   res.json(rows);
 });
 
-router.patch('/applicants/:id', auth, (req, res) => {
+router.patch('/applicants/:id', auth, blockViewerWrites, (req, res) => {
   const { status } = req.body;
   if (status && !APPLICANT_STATUSES.includes(status)) {
     return res.status(400).json({ error: 'Invalid status' });
@@ -182,7 +277,7 @@ router.patch('/applicants/:id', auth, (req, res) => {
 });
 
 // Trigger (or re-run) AI scoring for one applicant.
-router.post('/applicants/:id/score', auth, async (req, res) => {
+router.post('/applicants/:id/score', auth, blockViewerWrites, async (req, res) => {
   if (!aiScoringEnabled()) {
     return res.status(503).json({ error: 'AI scoring unavailable — set LLM_API_KEY' });
   }
@@ -195,7 +290,7 @@ router.post('/applicants/:id/score', auth, async (req, res) => {
   res.json(result);
 });
 
-router.get('/applicants/:id/resume', auth, (req, res) => {
+router.get('/applicants/:id/resume', auth, blockViewerWrites, (req, res) => {
   const app = db.prepare('SELECT resume_path FROM applications WHERE id = ?').get(req.params.id);
   if (!app || !app.resume_path) return res.status(404).json({ error: 'Résumé not found' });
 
@@ -215,11 +310,11 @@ const employersWithMeta = `
   FROM employers e
 `;
 
-router.get('/employers', auth, (req, res) => {
+router.get('/employers', auth, blockViewerWrites, (req, res) => {
   res.json(db.prepare(`${employersWithMeta} ORDER BY e.name`).all());
 });
 
-router.post('/employers', auth, (req, res) => {
+router.post('/employers', auth, blockViewerWrites, (req, res) => {
   const { name, contact_name, contact_email, phone, plan, since, notes } = req.body;
   if (!name) return res.status(400).json({ error: 'Company name is required' });
   const result = db.prepare(
@@ -229,7 +324,7 @@ router.post('/employers', auth, (req, res) => {
   res.status(201).json(db.prepare(`${employersWithMeta} WHERE e.id = ?`).get(result.lastInsertRowid));
 });
 
-router.put('/employers/:id', auth, (req, res) => {
+router.put('/employers/:id', auth, blockViewerWrites, (req, res) => {
   const { name, contact_name, contact_email, phone, plan, since, notes } = req.body;
   db.prepare(
     `UPDATE employers SET name = ?, contact_name = ?, contact_email = ?, phone = ?, plan = ?, since = ?, notes = ? WHERE id = ?`
@@ -239,7 +334,7 @@ router.put('/employers/:id', auth, (req, res) => {
   res.json(employer);
 });
 
-router.delete('/employers/:id', auth, (req, res) => {
+router.delete('/employers/:id', auth, blockViewerWrites, (req, res) => {
   const result = db.prepare('DELETE FROM employers WHERE id = ?').run(req.params.id);
   if (result.changes === 0) return res.status(404).json({ error: 'Employer not found' });
   res.json({ message: 'Employer deleted' });
@@ -253,7 +348,7 @@ const invoicesWithMeta = `
 `;
 const INVOICE_STATUSES = ['draft', 'sent', 'paid', 'overdue'];
 
-router.get('/invoices', auth, (req, res) => {
+router.get('/invoices', auth, requireRole('owner'), (req, res) => {
   res.json(db.prepare(`${invoicesWithMeta} ORDER BY i.created_at DESC`).all());
 });
 
@@ -272,7 +367,7 @@ const createInvoiceTx = db.transaction((employer_id, number, amount, status, iss
   return id;
 });
 
-router.post('/invoices', auth, (req, res) => {
+router.post('/invoices', auth, requireRole('owner'), (req, res) => {
   const { employer_id, number, amount, status, issued_at, due_at } = req.body;
   if (!employer_id) return res.status(400).json({ error: 'Employer is required' });
   const st = INVOICE_STATUSES.includes(status) ? status : 'draft';
@@ -280,7 +375,7 @@ router.post('/invoices', auth, (req, res) => {
   res.status(201).json(db.prepare(`${invoicesWithMeta} WHERE i.id = ?`).get(id));
 });
 
-router.put('/invoices/:id', auth, (req, res) => {
+router.put('/invoices/:id', auth, requireRole('owner'), (req, res) => {
   const { employer_id, number, amount, status, issued_at, due_at } = req.body;
   const st = INVOICE_STATUSES.includes(status) ? status : 'draft';
   db.prepare(
@@ -291,7 +386,7 @@ router.put('/invoices/:id', auth, (req, res) => {
   res.json(invoice);
 });
 
-router.delete('/invoices/:id', auth, (req, res) => {
+router.delete('/invoices/:id', auth, requireRole('owner'), (req, res) => {
   const result = db.prepare('DELETE FROM invoices WHERE id = ?').run(req.params.id);
   if (result.changes === 0) return res.status(404).json({ error: 'Invoice not found' });
   res.json({ message: 'Invoice deleted' });
@@ -300,7 +395,7 @@ router.delete('/invoices/:id', auth, (req, res) => {
 // ---------------------------------------------------------------------------
 // Documents — résumés on file (derived from applications)
 // ---------------------------------------------------------------------------
-router.get('/documents', auth, (req, res) => {
+router.get('/documents', auth, blockViewerWrites, (req, res) => {
   res.json(db.prepare(`
     SELECT a.id AS application_id, a.name AS applicant_name, a.resume_path,
            a.created_at, j.title AS job_title, e.name AS company
@@ -315,7 +410,7 @@ router.get('/documents', auth, (req, res) => {
 // ---------------------------------------------------------------------------
 // Settings — agency profile stored as JSON on the organization row
 // ---------------------------------------------------------------------------
-router.get('/settings', auth, (req, res) => {
+router.get('/settings', auth, requireRole('owner'), (req, res) => {
   const org = db.prepare('SELECT id, name, settings FROM organizations WHERE id = ?').get(ORG_ID);
   res.json({
     id: org.id, name: org.name, settings: safeParse(org.settings) || {},
@@ -326,7 +421,7 @@ router.get('/settings', auth, (req, res) => {
   });
 });
 
-router.put('/settings', auth, (req, res) => {
+router.put('/settings', auth, requireRole('owner'), (req, res) => {
   const { name, settings } = req.body;
   db.prepare('UPDATE organizations SET name = COALESCE(?, name), settings = ? WHERE id = ?')
     .run(name || null, JSON.stringify(settings || {}), ORG_ID);
@@ -342,7 +437,7 @@ function orgSettings() {
 // ---------------------------------------------------------------------------
 // AI daily shortlist — top-5 candidates by AI score (the "Reviewer" output)
 // ---------------------------------------------------------------------------
-router.get('/shortlist', auth, (req, res) => {
+router.get('/shortlist', auth, blockViewerWrites, (req, res) => {
   res.json(db.prepare(`
     SELECT a.id, a.name, a.email, a.ai_score, a.status, a.created_at,
            j.title AS job_title, e.name AS company
@@ -358,7 +453,7 @@ router.get('/shortlist', auth, (req, res) => {
 // ---------------------------------------------------------------------------
 // AI Agents — Reviewer, Follow-up, Receptionist, Voice, Onboarder
 // ---------------------------------------------------------------------------
-router.get('/agents', auth, (req, res) => {
+router.get('/agents', auth, blockViewerWrites, (req, res) => {
   const ai = aiScoringEnabled();
   const scored = db.prepare('SELECT COUNT(*) n FROM applications WHERE ai_score IS NOT NULL').get().n;
   const avg = db.prepare('SELECT ROUND(AVG(ai_score)) a FROM applications WHERE ai_score IS NOT NULL').get().a;
@@ -382,7 +477,7 @@ router.get('/agents', auth, (req, res) => {
   ]);
 });
 
-router.post('/agents/followup', auth, async (req, res) => {
+router.post('/agents/followup', auth, blockViewerWrites, async (req, res) => {
   if (!aiScoringEnabled()) return res.status(503).json({ error: 'Connect LLM_API_KEY to use AI agents' });
   const a = db.prepare('SELECT * FROM applications WHERE id = ?').get(req.body.applicant_id);
   if (!a) return res.status(404).json({ error: 'Applicant not found' });
@@ -395,7 +490,7 @@ router.post('/agents/followup', auth, async (req, res) => {
 // ---------------------------------------------------------------------------
 // ATS routing — push a candidate to the configured ATS webhook (Bullhorn, …)
 // ---------------------------------------------------------------------------
-router.post('/applicants/:id/route', auth, async (req, res) => {
+router.post('/applicants/:id/route', auth, blockViewerWrites, async (req, res) => {
   const a = db.prepare(`
     SELECT a.*, j.title AS job_title FROM applications a JOIN jobs j ON a.job_id = j.id WHERE a.id = ?
   `).get(req.params.id);
@@ -426,7 +521,7 @@ router.post('/applicants/:id/route', auth, async (req, res) => {
 // ---------------------------------------------------------------------------
 // Stripe subscription ($950/mo) — real Checkout when keys are configured
 // ---------------------------------------------------------------------------
-router.post('/billing/checkout', auth, async (req, res) => {
+router.post('/billing/checkout', auth, requireRole('owner'), async (req, res) => {
   const key = process.env.STRIPE_SECRET_KEY;
   const price = process.env.STRIPE_PRICE_ID;
   if (!key || !price) {
@@ -457,24 +552,24 @@ router.post('/billing/checkout', auth, async (req, res) => {
 // ---------------------------------------------------------------------------
 // QuickBooks Online — connect (OAuth), status, disconnect, push invoice, export
 // ---------------------------------------------------------------------------
-router.get('/quickbooks/status', auth, (req, res) => {
+router.get('/quickbooks/status', auth, requireRole('owner'), (req, res) => {
   const qbo = getQbo(db);
   res.json({ configured: qboConfigured(), connected: Boolean(qbo), company: qbo?.company_name || null, connectedAt: qbo?.connected_at || null });
 });
 
-router.get('/quickbooks/connect', auth, (req, res) => {
+router.get('/quickbooks/connect', auth, requireRole('owner'), (req, res) => {
   if (!qboConfigured()) return res.status(503).json({ error: 'QuickBooks not configured — set QBO_CLIENT_ID and QBO_CLIENT_SECRET' });
   const state = crypto.randomBytes(16).toString('hex');
   savePendingState(db, state);
   res.json({ url: buildAuthUrl(req, state) });
 });
 
-router.post('/quickbooks/disconnect', auth, (req, res) => {
+router.post('/quickbooks/disconnect', auth, requireRole('owner'), (req, res) => {
   clearQbo(db);
   res.json({ disconnected: true });
 });
 
-router.post('/invoices/:id/quickbooks', auth, async (req, res) => {
+router.post('/invoices/:id/quickbooks', auth, requireRole('owner'), async (req, res) => {
   const invoice = db.prepare('SELECT * FROM invoices WHERE id = ?').get(req.params.id);
   if (!invoice) return res.status(404).json({ error: 'Invoice not found' });
   if (!getQbo(db)) return res.status(503).json({ error: 'Connect QuickBooks in Settings first' });
@@ -497,7 +592,7 @@ router.post('/invoices/:id/quickbooks', auth, async (req, res) => {
 });
 
 // QuickBooks-ready CSV export of all invoices (works with no QBO connection).
-router.get('/invoices/export', auth, (req, res) => {
+router.get('/invoices/export', auth, requireRole('owner'), (req, res) => {
   const rows = db.prepare(`${invoicesWithMeta} ORDER BY i.created_at DESC`).all();
   const esc = (v) => { const s = v == null ? '' : String(v); return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
   const header = ['InvoiceNo', 'Customer', 'InvoiceDate', 'DueDate', 'Item', 'ItemDescription', 'ItemQuantity', 'ItemRate', 'ItemAmount', 'Status'];
@@ -546,7 +641,7 @@ function withAmounts(row) {
   return { ...row, daily_hours, pay_amount, bill_amount };
 }
 
-router.get('/timesheets', auth, (req, res) => {
+router.get('/timesheets', auth, blockViewerWrites, (req, res) => {
   const { status } = req.query;
   let sql = timesheetsWithMeta;
   const args = [];
@@ -557,7 +652,7 @@ router.get('/timesheets', auth, (req, res) => {
 
 // Manual entry (e.g. hours phoned in by the client) — upserts the week if the
 // candidate already self-submitted it and it's still pending review.
-router.post('/timesheets', auth, (req, res) => {
+router.post('/timesheets', auth, blockViewerWrites, (req, res) => {
   const { application_id, week_start, daily_hours, notes } = req.body;
   if (!application_id || !week_start) return res.status(400).json({ error: 'Candidate and week are required' });
   if (!/^\d{4}-\d{2}-\d{2}$/.test(week_start) || Number.isNaN(Date.parse(week_start))) {
@@ -588,7 +683,7 @@ router.post('/timesheets', auth, (req, res) => {
   res.status(201).json(withAmounts(db.prepare(`${timesheetsWithMeta} WHERE t.id = ?`).get(id)));
 });
 
-router.patch('/timesheets/:id', auth, (req, res) => {
+router.patch('/timesheets/:id', auth, blockViewerWrites, (req, res) => {
   const existing = db.prepare('SELECT * FROM timesheets WHERE id = ?').get(req.params.id);
   if (!existing) return res.status(404).json({ error: 'Timesheet not found' });
 
@@ -612,14 +707,14 @@ router.patch('/timesheets/:id', auth, (req, res) => {
   res.json(withAmounts(db.prepare(`${timesheetsWithMeta} WHERE t.id = ?`).get(req.params.id)));
 });
 
-router.delete('/timesheets/:id', auth, (req, res) => {
+router.delete('/timesheets/:id', auth, blockViewerWrites, (req, res) => {
   const result = db.prepare('DELETE FROM timesheets WHERE id = ?').run(req.params.id);
   if (result.changes === 0) return res.status(404).json({ error: 'Timesheet not found' });
   res.json({ message: 'Timesheet deleted' });
 });
 
 // Get-or-create the no-login link a hired candidate uses to submit their hours.
-router.get('/applicants/:id/timesheet-link', auth, (req, res) => {
+router.get('/applicants/:id/timesheet-link', auth, blockViewerWrites, (req, res) => {
   const app = db.prepare('SELECT id, timesheet_token FROM applications WHERE id = ?').get(req.params.id);
   if (!app) return res.status(404).json({ error: 'Applicant not found' });
 
@@ -633,7 +728,7 @@ router.get('/applicants/:id/timesheet-link', auth, (req, res) => {
 });
 
 // Payroll-ready CSV export (generic format accepted by ADP/Gusto/Paychex-style imports).
-router.get('/timesheets/payroll-export', auth, (req, res) => {
+router.get('/timesheets/payroll-export', auth, blockViewerWrites, (req, res) => {
   const status = TIMESHEET_STATUSES.includes(req.query.status) ? req.query.status : 'approved';
   const rows = db.prepare(`${timesheetsWithMeta} WHERE t.status = ? ORDER BY t.week_start DESC`).all(status).map(withAmounts);
   const header = ['Employee Name', 'Employee Email', 'Week Starting', 'Job', 'Client', 'Hours', 'Pay Rate', 'Gross Pay', 'Status'];
@@ -651,7 +746,7 @@ router.get('/timesheets/payroll-export', auth, (req, res) => {
 
 // Batch-generate one draft invoice per employer from approved, not-yet-invoiced
 // timesheets — hours × job.bill_rate, the same margin math already on the Jobs page.
-router.post('/timesheets/generate-invoices', auth, (req, res) => {
+router.post('/timesheets/generate-invoices', auth, blockViewerWrites, (req, res) => {
   const { timesheet_ids } = req.body || {};
   let sql = `${timesheetsWithMeta} WHERE t.status = 'approved'`;
   const args = [];
