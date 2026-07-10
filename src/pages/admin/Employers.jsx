@@ -7,6 +7,7 @@ import {
 } from '../../components/admin/ui';
 import { useToast } from '../../components/admin/Toast';
 import { useConfirm } from '../../components/admin/Confirm';
+import { useAuth } from '../../hooks/useAuth';
 
 const PLANS = ['Trial', 'Basic', 'Pro'];
 const blank = { name: '', contact_name: '', contact_email: '', phone: '', plan: 'Trial', since: '', notes: '' };
@@ -25,14 +26,24 @@ export default function Employers() {
   const toast = useToast();
   const confirm = useConfirm();
   const navigate = useNavigate();
+  const { isOwner } = useAuth();
 
   const load = async () => {
     setLoading(true);
-    const [e, j, v] = await Promise.all([apiFetch('/admin/employers'), apiFetch('/admin/jobs'), apiFetch('/admin/invoices')]);
-    setEmployers(e); setJobs(j); setInvoices(v);
+    try {
+      // /admin/invoices is owner-only — recruiters/viewers see everything
+      // else on this page, just not billing totals.
+      const [e, j, v] = await Promise.all([
+        apiFetch('/admin/employers'), apiFetch('/admin/jobs'),
+        isOwner ? apiFetch('/admin/invoices') : Promise.resolve([]),
+      ]);
+      setEmployers(e); setJobs(j); setInvoices(v);
+    } catch (err) {
+      toast.error(err.message);
+    }
     setLoading(false);
   };
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [isOwner]);
   useEffect(() => { setQuery(searchParams.get('q') || ''); }, [searchParams]);
 
   const openNew = () => { setForm(blank); setEditing('new'); };
@@ -55,7 +66,7 @@ export default function Employers() {
   };
 
   const remove = async (e) => {
-    const ok = await confirm({ title: 'Delete employer?', message: `“${e.name}” will be removed and its jobs unlinked.`, confirmLabel: 'Delete', danger: true });
+    const ok = await confirm({ title: 'Delete employer?', message: `“${e.name}” will be removed and its jobs unlinked. Employers with any invoices on file can't be deleted — remove those first.`, confirmLabel: 'Delete', danger: true });
     if (!ok) return;
     try {
       await apiFetch(`/admin/employers/${e.id}`, { method: 'DELETE' });
@@ -123,10 +134,10 @@ export default function Employers() {
               <StatusBadge status={profile.plan} />
             </div>
 
-            <div className="grid grid-cols-3 gap-3">
+            <div className={`grid gap-3 ${isOwner ? 'grid-cols-3' : 'grid-cols-2'}`}>
               <MiniStat label="Open Roles" value={profile.open_roles} />
               <MiniStat label="Total Jobs" value={profile.total_jobs} />
-              <MiniStat label="Billed" value={money(empInvoices.reduce((t, v) => t + v.amount, 0))} />
+              {isOwner && <MiniStat label="Billed" value={money(empInvoices.reduce((t, v) => t + v.amount, 0))} />}
             </div>
 
             <div className="grid grid-cols-2 gap-3 text-sm">
@@ -149,14 +160,16 @@ export default function Employers() {
               ))}
             </Section>
 
-            <Section title="Invoices" action={<button onClick={() => navigate('/admin/billing')} className="text-xs text-sky-600 hover:text-sky-700 dark:text-sky-300 dark:hover:text-sky-200">Billing →</button>}>
-              {empInvoices.length === 0 ? <Empty text="No invoices yet" /> : empInvoices.map((v) => (
-                <div key={v.id} className="flex items-center justify-between py-2">
-                  <div><div className="text-sm text-zinc-900 dark:text-white">{v.number}</div><div className="text-xs text-zinc-500">{v.issued_at || 'draft'}</div></div>
-                  <div className="flex items-center gap-3"><span className="text-sm tabular-nums text-zinc-800 dark:text-zinc-200">{money(v.amount)}</span><StatusBadge status={v.status} /></div>
-                </div>
-              ))}
-            </Section>
+            {isOwner && (
+              <Section title="Invoices" action={<button onClick={() => navigate('/admin/billing')} className="text-xs text-sky-600 hover:text-sky-700 dark:text-sky-300 dark:hover:text-sky-200">Billing →</button>}>
+                {empInvoices.length === 0 ? <Empty text="No invoices yet" /> : empInvoices.map((v) => (
+                  <div key={v.id} className="flex items-center justify-between py-2">
+                    <div><div className="text-sm text-zinc-900 dark:text-white">{v.number}</div><div className="text-xs text-zinc-500">{v.issued_at || 'draft'}</div></div>
+                    <div className="flex items-center gap-3"><span className="text-sm tabular-nums text-zinc-800 dark:text-zinc-200">{money(v.amount)}</span><StatusBadge status={v.status} /></div>
+                  </div>
+                ))}
+              </Section>
+            )}
 
             <div className="flex gap-2">
               <Button variant="ghost" icon="solar:pen-linear" onClick={() => { setProfile(null); openEdit(profile); }} className="flex-1 justify-center">Edit</Button>

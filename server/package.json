@@ -1,5 +1,5 @@
 {
-  "name": "taskforce-server",
+  "name": "staffing-co-server",
   "private": true,
   "type": "module",
   "scripts": {

@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 import rateLimit from 'express-rate-limit';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { unlinkSync } from 'fs';
 import db from '../db.js';
 import auth, { requireRole, blockViewerWrites } from '../middleware/auth.js';
 import crypto from 'crypto';
@@ -236,7 +237,19 @@ router.put('/jobs/:id', auth, blockViewerWrites, (req, res) => {
   res.json(job);
 });
 
+// Deleting a job cascades to every application, timesheet, and notification
+// tied to it — block it when there's real history (a hire or a billed
+// timesheet) that shouldn't just vanish. Close the job instead; delete
+// individual not-yet-placed applicants via DELETE /applicants/:id if needed.
 router.delete('/jobs/:id', auth, blockViewerWrites, (req, res) => {
+  const hired = db.prepare("SELECT COUNT(*) n FROM applications WHERE job_id = ? AND status = 'hired'").get(req.params.id).n;
+  const invoiced = db.prepare("SELECT COUNT(*) n FROM timesheets WHERE job_id = ? AND status = 'invoiced'").get(req.params.id).n;
+  if (hired > 0 || invoiced > 0) {
+    const parts = [];
+    if (hired > 0) parts.push(`${hired} hired candidate${hired > 1 ? 's' : ''}`);
+    if (invoiced > 0) parts.push(`${invoiced} invoiced timesheet${invoiced > 1 ? 's' : ''}`);
+    return res.status(400).json({ error: `This job has ${parts.join(' and ')} — set its status to Closed instead of deleting it, so that history is kept.` });
+  }
   const result = db.prepare('DELETE FROM jobs WHERE id = ?').run(req.params.id);
   if (result.changes === 0) return res.status(404).json({ error: 'Job not found' });
   res.json({ message: 'Job deleted' });
@@ -377,6 +390,31 @@ router.get('/applicants/:id/resume', auth, blockViewerWrites, (req, res) => {
   res.download(join(resumeDir, app.resume_path));
 });
 
+// Removes a candidate (e.g. a right-to-be-forgotten request) and their résumé
+// file on disk. Blocked if they have any invoiced timesheets — deleting the
+// application would cascade-delete those rows too, silently erasing billed
+// history; close them out in Timesheets/Billing first if that's really needed.
+router.delete('/applicants/:id', auth, blockViewerWrites, (req, res) => {
+  const app = db.prepare('SELECT resume_path FROM applications WHERE id = ?').get(req.params.id);
+  if (!app) return res.status(404).json({ error: 'Applicant not found' });
+
+  const invoiced = db.prepare("SELECT COUNT(*) n FROM timesheets WHERE application_id = ? AND status = 'invoiced'").get(req.params.id).n;
+  if (invoiced > 0) {
+    return res.status(400).json({ error: `This candidate has ${invoiced} invoiced timesheet${invoiced > 1 ? 's' : ''} — remove them from Billing first if you really need to delete this record.` });
+  }
+
+  db.prepare('DELETE FROM applications WHERE id = ?').run(req.params.id);
+
+  if (app.resume_path) {
+    const resumeDir = process.env.NODE_ENV === 'production'
+      ? '/app/persist/resumes'
+      : join(__dirname, '..', '..', 'uploads', 'resumes');
+    try { unlinkSync(join(resumeDir, app.resume_path)); } catch { /* file already gone — nothing to clean up */ }
+  }
+
+  res.json({ message: 'Applicant deleted' });
+});
+
 // ---------------------------------------------------------------------------
 // Employers (client CRM) CRUD
 // ---------------------------------------------------------------------------
@@ -411,7 +449,14 @@ router.put('/employers/:id', auth, blockViewerWrites, (req, res) => {
   res.json(employer);
 });
 
+// Deleting an employer cascades to every invoice billed to them — block it
+// when any exist (including drafts, which still represent real billing work)
+// rather than silently erasing financial history the agency needs at tax time.
 router.delete('/employers/:id', auth, blockViewerWrites, (req, res) => {
+  const invoiceCount = db.prepare('SELECT COUNT(*) n FROM invoices WHERE employer_id = ?').get(req.params.id).n;
+  if (invoiceCount > 0) {
+    return res.status(400).json({ error: `This employer has ${invoiceCount} invoice${invoiceCount > 1 ? 's' : ''} on file — invoices can't be deleted along with the employer. Remove them from Billing first if you really need to delete this record.` });
+  }
   const result = db.prepare('DELETE FROM employers WHERE id = ?').run(req.params.id);
   if (result.changes === 0) return res.status(404).json({ error: 'Employer not found' });
   res.json({ message: 'Employer deleted' });
@@ -550,7 +595,7 @@ router.get('/agents', auth, blockViewerWrites, (req, res) => {
       status: s.voice_provider ? 'active' : 'connect', metric: s.voice_provider || 'Connect a voice provider' },
     { key: 'onboarder', name: 'The Onboarder', icon: 'solar:user-id-bold-duotone',
       desc: 'Runs new hires through your onboarding checklist and document collection.',
-      status: 'active', metric: 'Checklist ready' },
+      status: 'setup', metric: 'Coming soon' },
   ]);
 });
 
@@ -823,33 +868,37 @@ router.get('/timesheets/payroll-export', auth, blockViewerWrites, (req, res) => 
 
 // Batch-generate one draft invoice per employer from approved, not-yet-invoiced
 // timesheets — hours × job.bill_rate, the same margin math already on the Jobs page.
-router.post('/timesheets/generate-invoices', auth, blockViewerWrites, (req, res) => {
+// Owner-gated to match every other invoice-mutating route (this one creates
+// invoices too, via createInvoiceTx, so it shouldn't be reachable by recruiters).
+// The eligibility read runs inside the same transaction as the writes so the
+// whole read-then-mark-invoiced sequence is atomic by construction, not just
+// by the accident of better-sqlite3 being synchronous.
+router.post('/timesheets/generate-invoices', auth, requireRole('owner'), (req, res) => {
   const { timesheet_ids } = req.body || {};
-  let sql = `${timesheetsWithMeta} WHERE t.status = 'approved'`;
-  const args = [];
-  if (Array.isArray(timesheet_ids) && timesheet_ids.length) {
-    sql += ` AND t.id IN (${timesheet_ids.map(() => '?').join(',')})`;
-    args.push(...timesheet_ids);
-  }
-  const eligible = db.prepare(sql).all(...args).map(withAmounts);
-
-  const billable = eligible.filter((t) => t.employer_id && t.bill_amount != null);
-  const skipped = eligible.length - billable.length;
-  if (billable.length === 0) {
-    return res.status(400).json({ error: 'No approved timesheets with a billable employer + bill rate to invoice.', skipped });
-  }
-
-  const byEmployer = new Map();
-  for (const t of billable) {
-    if (!byEmployer.has(t.employer_id)) byEmployer.set(t.employer_id, { company: t.company, total: 0, timesheetIds: [] });
-    const bucket = byEmployer.get(t.employer_id);
-    bucket.total += t.bill_amount;
-    bucket.timesheetIds.push(t.id);
-  }
-
   const today = new Date().toISOString().slice(0, 10);
   const markInvoiced = db.prepare("UPDATE timesheets SET status = 'invoiced', invoice_id = ? WHERE id = ?");
-  const createAll = db.transaction(() => {
+
+  const generate = db.transaction(() => {
+    let sql = `${timesheetsWithMeta} WHERE t.status = 'approved'`;
+    const args = [];
+    if (Array.isArray(timesheet_ids) && timesheet_ids.length) {
+      sql += ` AND t.id IN (${timesheet_ids.map(() => '?').join(',')})`;
+      args.push(...timesheet_ids);
+    }
+    const eligible = db.prepare(sql).all(...args).map(withAmounts);
+
+    const billable = eligible.filter((t) => t.employer_id && t.bill_amount != null);
+    const skipped = eligible.length - billable.length;
+    if (billable.length === 0) return { invoices: [], skipped };
+
+    const byEmployer = new Map();
+    for (const t of billable) {
+      if (!byEmployer.has(t.employer_id)) byEmployer.set(t.employer_id, { company: t.company, total: 0, timesheetIds: [] });
+      const bucket = byEmployer.get(t.employer_id);
+      bucket.total += t.bill_amount;
+      bucket.timesheetIds.push(t.id);
+    }
+
     const created = [];
     for (const [employerId, bucket] of byEmployer) {
       const amount = Math.round(bucket.total * 100) / 100;
@@ -857,10 +906,14 @@ router.post('/timesheets/generate-invoices', auth, blockViewerWrites, (req, res)
       bucket.timesheetIds.forEach((tid) => markInvoiced.run(invoiceId, tid));
       created.push({ invoice_id: invoiceId, employer: bucket.company, amount, timesheet_count: bucket.timesheetIds.length });
     }
-    return created;
+    return { invoices: created, skipped };
   });
 
-  res.json({ invoices: createAll(), skipped });
+  const result = generate();
+  if (result.invoices.length === 0) {
+    return res.status(400).json({ error: 'No approved timesheets with a billable employer + bill rate to invoice.', skipped: result.skipped });
+  }
+  res.json(result);
 });
 
 function safeParse(s) {

@@ -18,6 +18,7 @@ export default function Agents() {
   useEffect(() => {
     Promise.all([apiFetch('/admin/agents'), apiFetch('/admin/applicants')])
       .then(([a, ap]) => { setAgents(a); setApplicants(ap); })
+      .catch((err) => toast.error(err.message))
       .finally(() => setLoading(false));
   }, []);
 

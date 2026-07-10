@@ -10,7 +10,7 @@ export default function Documents() {
   const toast = useToast();
 
   useEffect(() => {
-    apiFetch('/admin/documents').then(setDocs).finally(() => setLoading(false));
+    apiFetch('/admin/documents').then(setDocs).catch((err) => toast.error(err.message)).finally(() => setLoading(false));
   }, []);
 
   const fetchBlob = async (id) => {

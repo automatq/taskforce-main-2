@@ -27,6 +27,7 @@ Render reads `render.yaml`, provisions a persistent disk (so the database + rés
 | `LLM_BASE_URL` | optional | Provider base URL. Default `https://api.minimax.io/v1` (MiniMax). Also works with DeepSeek (`https://api.deepseek.com/v1`), Groq, OpenRouter, Together, OpenAI, local Ollama. |
 | `LLM_MODEL` | optional | Model name, default `MiniMax-M2`. Set to your provider's model (e.g. `deepseek-chat`, `llama-3.3-70b-versatile`). |
 | `SEED_ON_BOOT` | optional | `true` (default) seeds demo data on an empty DB; set `false` to start empty. |
+| `SEED_DEMO_USERS` | optional | Demo `recruiter@demo.local`/`viewer@demo.local` logins (see below) are only seeded when `NODE_ENV` isn't `production` — set this to `true` to include them on a production-mode deploy anyway (e.g. a demo/staging environment). |
 | `STRIPE_SECRET_KEY` / `STRIPE_PRICE_ID` | optional | Enables the real $950/mo Stripe subscription checkout. |
 | `STRIPE_WEBHOOK_SECRET` | required with the above | Signing secret for the `/api/stripe/webhook` endpoint — this is what actually confirms a subscription is paid (the checkout redirect alone does not). Get it from the Stripe Dashboard → Webhooks → your endpoint. |
 | `QBO_CLIENT_ID` / `QBO_CLIENT_SECRET` | optional | Intuit Developer app credentials — enables live QuickBooks Online invoice sync (OAuth). The QuickBooks **CSV export** works without these. |
@@ -66,7 +67,7 @@ One agency, one login to start — then invite your team from **Team** in the si
 | **Recruiter** | Day-to-day ATS work — Jobs, Applicants, Employers, Timesheets, Documents, AI Agents. No Billing, Settings, QuickBooks, or Team. |
 | **Viewer** | Read-only across everything a Recruiter can see. |
 
-Every account (including the Owner) can change their own password from the account menu in the top-right corner. Running `npm run seed` also adds two demo logins so you can try each role — **`recruiter@demo.local`** / **`viewer@demo.local`**, password `demopass123`. These are for demoing the product; remove them (or just leave them deactivated) before handing a deployment to a real customer.
+Every account (including the Owner) can change their own password from the account menu in the top-right corner. In local/dev mode, running `npm run seed` also adds two demo logins so you can try each role — **`recruiter@demo.local`** / **`viewer@demo.local`**, password `demopass123`. **These are never created on a production deploy by default** (that password is public, right here in this README) — they only appear if you explicitly set `SEED_DEMO_USERS=true`. If you do turn them on to demo the product, remove them (or deactivate them from the Team page) before handing the deployment to a real customer.
 
 ---
 

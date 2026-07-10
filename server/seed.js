@@ -223,9 +223,15 @@ for (const t of timesheets) {
 }
 
 // ---------------------------------------------------------------------------
-// Demo Recruiter/Viewer team accounts — so a fresh deploy can demo the
-// multi-user roles immediately, without touching the real Owner account
+// Demo Recruiter/Viewer team accounts — so a fresh LOCAL/DEV deploy can demo
+// the multi-user roles immediately, without touching the real Owner account
 // (bootstrapped separately from ADMIN_EMAIL/ADMIN_PASSWORD in index.js).
+//
+// Deliberately NOT created in production: the password is published in this
+// repo's README, so auto-creating these on every customer's fresh deploy
+// would hand out a known recruiter-level login to anyone who's seen the
+// template. Set SEED_DEMO_USERS=true to opt back in for a real demo/staging
+// environment that happens to run with NODE_ENV=production.
 // Added by email if missing, never wiped/reset — safe to rerun `npm run seed`.
 // ---------------------------------------------------------------------------
 const DEMO_USER_PASSWORD = 'demopass123';
@@ -233,12 +239,15 @@ const demoUsers = [
   { name: 'Alex Recruiter', email: 'recruiter@demo.local', role: 'recruiter' },
   { name: 'Jordan Viewer', email: 'viewer@demo.local', role: 'viewer' },
 ];
-const insertUser = db.prepare(
-  'INSERT INTO users (org_id, name, email, password_hash, role) VALUES (1, ?, ?, ?, ?)'
-);
-for (const u of demoUsers) {
-  if (!db.prepare('SELECT id FROM users WHERE email = ?').get(u.email)) {
-    insertUser.run(u.name, u.email, bcrypt.hashSync(DEMO_USER_PASSWORD, 10), u.role);
+const seedDemoUsers = process.env.NODE_ENV !== 'production' || process.env.SEED_DEMO_USERS === 'true';
+if (seedDemoUsers) {
+  const insertUser = db.prepare(
+    'INSERT INTO users (org_id, name, email, password_hash, role) VALUES (1, ?, ?, ?, ?)'
+  );
+  for (const u of demoUsers) {
+    if (!db.prepare('SELECT id FROM users WHERE email = ?').get(u.email)) {
+      insertUser.run(u.name, u.email, bcrypt.hashSync(DEMO_USER_PASSWORD, 10), u.role);
+    }
   }
 }
 
@@ -251,6 +260,8 @@ const counts = {
   users: db.prepare('SELECT COUNT(*) n FROM users').get().n,
 };
 console.log('Seeded:', counts);
-if (demoUsers.some((u) => db.prepare('SELECT id FROM users WHERE email = ?').get(u.email))) {
+if (seedDemoUsers && demoUsers.some((u) => db.prepare('SELECT id FROM users WHERE email = ?').get(u.email))) {
   console.log(`Demo team logins (password: ${DEMO_USER_PASSWORD}): recruiter@demo.local, viewer@demo.local`);
+} else if (!seedDemoUsers) {
+  console.log('Demo team logins skipped (NODE_ENV=production) — set SEED_DEMO_USERS=true to include them.');
 }

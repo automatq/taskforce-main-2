@@ -67,7 +67,7 @@ export default function Jobs() {
   };
 
   const remove = async (job) => {
-    const ok = await confirm({ title: 'Delete job posting?', message: `“${job.title}” and all of its applications will be permanently removed.`, confirmLabel: 'Delete', danger: true });
+    const ok = await confirm({ title: 'Delete job posting?', message: `“${job.title}” and all of its applicants and timesheets will be permanently removed. Jobs with a hire or a billed timesheet can't be deleted — close them instead.`, confirmLabel: 'Delete', danger: true });
     if (!ok) return;
     try {
       await apiFetch(`/admin/jobs/${job.id}`, { method: 'DELETE' });

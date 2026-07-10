@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { apiFetch } from '../../lib/api';
+import { useAuth } from '../../hooks/useAuth';
+import { useToast } from '../../components/admin/Toast';
 import {
-  GlassCard, StatCard, ScoreChip, StatusBadge, Spinner, Icon, Button, money, relativeDate,
+  GlassCard, StatCard, ScoreChip, StatusBadge, Spinner, Icon, Button, EmptyState, money, relativeDate,
 } from '../../components/admin/ui';
 
 const PIPELINE = [
@@ -20,23 +22,32 @@ export default function Dashboard() {
   const [invoices, setInvoices] = useState([]);
   const [shortlist, setShortlist] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const { isOwner } = useAuth();
+  const toast = useToast();
   const navigate = useNavigate();
 
   useEffect(() => {
+    // /admin/invoices is owner-only — recruiters/viewers would 403 on it and
+    // (since it shared one Promise.all) that used to blank the whole page.
     Promise.all([
       apiFetch('/admin/stats'),
       apiFetch('/admin/applicants'),
       apiFetch('/admin/jobs'),
-      apiFetch('/admin/invoices'),
+      isOwner ? apiFetch('/admin/invoices') : Promise.resolve([]),
       apiFetch('/admin/shortlist'),
     ])
       .then(([s, a, j, v, sl]) => { setStats(s); setApplicants(a); setJobs(j); setInvoices(v); setShortlist(sl); })
-      .catch((e) => console.error(e))
+      .catch((e) => { console.error(e); setLoadError(true); toast.error('Could not load the dashboard — please refresh.'); })
       .finally(() => setLoading(false));
-  }, []);
+  }, [isOwner]);
 
   if (loading) return <div className="flex justify-center py-24"><Spinner className="h-8 w-8" /></div>;
-  if (!stats) return null;
+  if (!stats) {
+    return loadError
+      ? <EmptyState icon="solar:danger-triangle-linear" title="Couldn't load the dashboard" hint="Check your connection and refresh the page." />
+      : null;
+  }
 
   const pipelineTotal = PIPELINE.reduce((t, p) => t + (stats[p.statKey] || 0), 0) || 1;
 
@@ -94,7 +105,7 @@ export default function Dashboard() {
             <h2 className="text-sm font-semibold text-zinc-900 dark:text-white">Today's AI Shortlist</h2>
             <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-emerald-600 ring-1 ring-emerald-400/20 dark:text-emerald-300">Top 5</span>
           </div>
-          <span className="hidden text-xs text-zinc-500 sm:block">Auto-emailed daily when connected</span>
+          <span className="hidden text-xs text-zinc-500 sm:block">Updates live as candidates are scored</span>
         </div>
         {shortlist.length === 0 ? (
           <p className="px-5 py-8 text-center text-sm text-zinc-400 dark:text-zinc-600">No scored candidates yet — the Reviewer agent surfaces your top 5 here as applications come in.</p>
@@ -175,8 +186,9 @@ export default function Dashboard() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
-        {/* Open roles snapshot */}
-        <GlassCard className="lg:col-span-2">
+        {/* Open roles snapshot — spans full width for non-owners since the
+            Recent Invoices card next to it is owner-only */}
+        <GlassCard className={isOwner ? 'lg:col-span-2' : 'lg:col-span-3'}>
           <div className="flex items-center justify-between border-b border-zinc-950/10 px-5 py-4 dark:border-white/10">
             <h2 className="text-sm font-semibold text-zinc-900 dark:text-white">Open Roles</h2>
             <Link to="/admin/jobs" className="text-xs text-sky-600 hover:text-sky-700 dark:text-sky-300 dark:hover:text-sky-200">Manage →</Link>
@@ -199,27 +211,29 @@ export default function Dashboard() {
           </div>
         </GlassCard>
 
-        {/* Recent invoices */}
-        <GlassCard>
-          <div className="flex items-center justify-between border-b border-zinc-950/10 px-5 py-4 dark:border-white/10">
-            <h2 className="text-sm font-semibold text-zinc-900 dark:text-white">Recent Invoices</h2>
-            <Link to="/admin/billing" className="text-xs text-sky-600 hover:text-sky-700 dark:text-sky-300 dark:hover:text-sky-200">Billing →</Link>
-          </div>
-          <div className="divide-y divide-zinc-950/[0.06] dark:divide-white/[0.06]">
-            {invoices.slice(0, 5).map((v) => (
-              <div key={v.id} className="flex items-center justify-between px-5 py-3">
-                <div className="min-w-0">
-                  <div className="truncate text-sm font-medium text-zinc-900 dark:text-white">{v.company || '—'}</div>
-                  <div className="text-xs text-zinc-500">{v.number}</div>
+        {/* Recent invoices — owner-only, same as Billing itself */}
+        {isOwner && (
+          <GlassCard>
+            <div className="flex items-center justify-between border-b border-zinc-950/10 px-5 py-4 dark:border-white/10">
+              <h2 className="text-sm font-semibold text-zinc-900 dark:text-white">Recent Invoices</h2>
+              <Link to="/admin/billing" className="text-xs text-sky-600 hover:text-sky-700 dark:text-sky-300 dark:hover:text-sky-200">Billing →</Link>
+            </div>
+            <div className="divide-y divide-zinc-950/[0.06] dark:divide-white/[0.06]">
+              {invoices.slice(0, 5).map((v) => (
+                <div key={v.id} className="flex items-center justify-between px-5 py-3">
+                  <div className="min-w-0">
+                    <div className="truncate text-sm font-medium text-zinc-900 dark:text-white">{v.company || '—'}</div>
+                    <div className="text-xs text-zinc-500">{v.number}</div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm tabular-nums text-zinc-800 dark:text-zinc-200">{money(v.amount)}</span>
+                    <StatusBadge status={v.status} />
+                  </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-sm tabular-nums text-zinc-800 dark:text-zinc-200">{money(v.amount)}</span>
-                  <StatusBadge status={v.status} />
-                </div>
-              </div>
-            ))}
-          </div>
-        </GlassCard>
+              ))}
+            </div>
+          </GlassCard>
+        )}
       </div>
     </div>
   );

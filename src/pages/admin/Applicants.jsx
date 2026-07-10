@@ -6,6 +6,7 @@ import {
   Spinner, EmptyState, Icon, SearchInput, relativeDate,
 } from '../../components/admin/ui';
 import { useToast } from '../../components/admin/Toast';
+import { useConfirm } from '../../components/admin/Confirm';
 
 const STATUSES = ['new', 'reviewing', 'interviewing', 'hired', 'rejected'];
 
@@ -20,11 +21,18 @@ export default function Applicants() {
   const [active, setActive] = useState(null);
   const [scoring, setScoring] = useState(false);
   const toast = useToast();
+  const confirm = useConfirm();
 
   const load = async () => {
     setLoading(true);
-    const [a, s] = await Promise.all([apiFetch('/admin/applicants'), apiFetch('/admin/settings')]);
-    setApplicants(a); setAiScoring(s.aiScoring);
+    try {
+      // /admin/stats (not /admin/settings, which is owner-only) is where
+      // aiScoring is read from — it's open to every role, same as this page.
+      const [a, s] = await Promise.all([apiFetch('/admin/applicants'), apiFetch('/admin/stats')]);
+      setApplicants(a); setAiScoring(s.aiScoring);
+    } catch (err) {
+      toast.error(err.message);
+    }
     setLoading(false);
   };
   useEffect(() => { load(); }, []);
@@ -70,6 +78,16 @@ export default function Applicants() {
       const r = await apiFetch(`/admin/applicants/${id}/route`, { method: 'POST' });
       if (r.routed) toast.success(`Routed to ${r.provider} (HTTP ${r.httpStatus})`);
       else toast.info(`No ATS webhook set — payload ready for ${r.provider}. Configure it in Settings → Integrations.`);
+    } catch (err) { toast.error(err.message); }
+  };
+
+  const remove = async (a) => {
+    const ok = await confirm({ title: 'Delete candidate?', message: `“${a.name}” and their résumé will be permanently removed. Candidates with an invoiced timesheet can't be deleted.`, confirmLabel: 'Delete', danger: true });
+    if (!ok) return;
+    try {
+      await apiFetch(`/admin/applicants/${a.id}`, { method: 'DELETE' });
+      toast.success('Candidate deleted');
+      setActive(null); await load();
     } catch (err) { toast.error(err.message); }
   };
 
@@ -240,6 +258,7 @@ export default function Applicants() {
               <Button variant="ghost" icon="solar:download-linear" onClick={() => downloadResume(active.id, active.name)} className="flex-1 justify-center">Résumé</Button>
               <Button variant="ghost" icon="solar:upload-square-linear" onClick={() => routeToAts(active.id)} className="flex-1 justify-center">Route to ATS</Button>
             </div>
+            <Button variant="danger" icon="solar:trash-bin-trash-linear" onClick={() => remove(active)} className="w-full justify-center">Delete Candidate</Button>
           </div>
         )}
       </Drawer>
